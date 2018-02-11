@@ -1,10 +1,16 @@
+CFLAGS=-Wall
+CXXFLAGS=-Wall
 
 build: ipmi
 
-ipmi: mongoose.o ipmi.o
-	$(CC) $(LDFLAGS) -o $@ $^
+clean:
+	rm -f *.o ipmi
 
-ipmi.c: mongoose.h
+ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o
+	$(CXX) $(LDFLAGS) -o $@ $^
+
+ipmi.o: ipmi.cpp ipmi.h
+ipmi.cpp: mongoose.h insist.h ipmi.h
 
 mongoose.c: mongoose.h
 	curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.c > $@
@@ -12,3 +18,5 @@ mongoose.c: mongoose.h
 mongoose.h:
 	curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.h > $@
 
+insist.h:
+	curl -s https://raw.githubusercontent.com/jordansissel/experiments/master/c/better-assert/insist.h > $@
