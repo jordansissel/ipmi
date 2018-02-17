@@ -8,8 +8,7 @@
   "\x0e\x04\x31"
 
 int main() {
-  auto client = new IPMI::Client;
-
+  const auto client = new IPMI::Client;
   struct mg_mgr mgr;
   mg_mgr_init(&mgr, NULL);
 
@@ -17,7 +16,9 @@ int main() {
     .user_data = client
   };
 
-  (void) mg_connect_opt(&mgr, "udp://pork-ipmi:623", ipmi_client_connection_handler, opts);
+  mg_connect_opt(&mgr, "udp://pork-ipmi:623", ipmi_client_connection_handler, opts);
+
+  client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
 
   for (;;) {  // Start infinite event loop
     mg_mgr_poll(&mgr, 1000);

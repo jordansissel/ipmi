@@ -1,66 +1,4 @@
-#ifndef _IPMI_H_
-#define _IPMI_H_
-#define _IPMI_H_
-#include "insist.h"
-#include <stdint.h>
-#include <list>
-#include <string>
-#include "mongoose.h"
 
-namespace IPMI {
-  enum class AuthenticationCapability {
-    Reserved = 0,
-    Callback = 1,
-    User = 2,
-    Operator = 3,
-    Administrator = 4,
-    OEM = 5
-  };
-
-  enum class ChassisControlCommand {
-    PowerDown = 0,
-    PowerUp = 1,
-    PowerCycle = 2,
-    HardReset = 3,
-    PulseDiagnosticInterrupt = 5,
-    SoftShutdown = 5
-  };
-
-  enum class ClientState {
-    Initial,
-    NeedChannelAuthenticationCapabilities,
-    NeedSessionChallenge,
-    NeedActivateSession,
-    NeedSetSessionPrivilegeLevel,
-    SessionReady
-  };
-
-  class Client {
-    private:
-    ClientState state = ClientState::Initial;
-    std::list<ChassisControlCommand> requestQueue{};
-    mg_connection *connection;
-
-    void send(ChassisControlCommand);
-    void receive(struct mbuf);
-    void handleGetChannelAuthenticationCapabilities(struct mbuf);
-    void begin();
-
-  public:
-
-    Client() : state{ClientState::Initial} {
-      printf("Init: %d\n", (int) state);
-
-    }
-    void chassisControl(ChassisControlCommand command);
-    void receivePacket(struct mbuf buf);
-
-    void setConnection(mg_connection *);
-  };
-};
-
-#if 0
-namespace IPMI {
   static void getChannelAuthenticationCapabilities(AuthenticationCapability authCap, uint8_t **packet, size_t *length) {
     // IPMI v2 rev 1
     // Section 13.1.3 RMCP Header
@@ -164,6 +102,3 @@ namespace IPMI {
     p[22] = -(p[17] + p[18] + p[19] + p[20] + p[21]);
     insist((uint8_t)((p[17] + p[18] + p[19] + p[20] + p[21]) + p[22]) == 0, "IPMB requester-command checksum failed.");
   }
-}
-#endif 
-#endif /* _IPMI_H_ */
