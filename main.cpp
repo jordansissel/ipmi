@@ -1,22 +1,14 @@
-#include "mongoose.h"
+#include "mgos.h"
 #include "insist.h"
 #include "ipmi.h"
 #include "ipmi_mongoose.h"
 
-#define GET_CHANNEL_AUTH_CAP "\x06\x00\xff\x07" \
-  "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x09\x20\x18\xc8\x81\x04\x38" \
-  "\x0e\x04\x31"
+void ipmi_client_connection_handler(struct mg_connection *nc, int ev, void *evdata, void *u) {
+
+}
 
 int main() {
-  const auto client = new IPMI::Client;
-  struct mg_mgr mgr;
-  mg_mgr_init(&mgr, NULL);
-
-  struct mg_connect_opts opts = {
-    .user_data = client
-  };
-
-  mg_connect_opt(&mgr, "udp://pork-ipmi:623", ipmi_client_connection_handler, opts);
+  mgos_connect("udp://pork-ipmi:623", ipmi_client_connection_handler, NULL);
 
   client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
 

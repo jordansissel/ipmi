@@ -9,6 +9,7 @@ clean:
 ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o ipmi_packet.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
+ipmi_packet.cpp: ipmi_packet.h
 ipmi.o: ipmi.cpp ipmi.h ipmi_packet.h
 ipmi.cpp: mongoose.h insist.h ipmi.h
 

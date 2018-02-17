@@ -39,6 +39,11 @@ namespace IPMI {
     private:
     ClientState state = ClientState::Initial;
     std::list<ChassisControlCommand> requestQueue{};
+
+    struct details {
+      
+    };
+    uint16_t authSupport;
     mg_connection *connection;
 
     void send(ChassisControlCommand);
