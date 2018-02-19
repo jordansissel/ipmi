@@ -8,12 +8,18 @@ void parsePacket(struct mbuf);
 #pragma pack(1)
 union ActivateSession {
     struct Request {
-        uint8_t auth_code;
         uint8_t auth_type;
         uint8_t privilege;
         uint8_t challenge;
         uint32_t sequence;
-    };
+    } request;
+    struct Response {
+        uint8_t completion_code;
+        uint8_t auth_type;
+        uint32_t session_id;
+        uint32_t sequence;
+        uint8_t privilege;
+    } response;
 };
 union GetChannelAuthenticationCapabilities {
     struct Request {
@@ -61,44 +67,44 @@ struct ipmi_message {
     union parameters {
         union GetChannelAuthenticationCapabilities getChannelAuthenticationCapabilities;
         union GetSessionChallenge getSessionChallenge;
+        union ActivateSession activateSession;
     } parameters;
 };
 
-struct rmcp {
-    uint8_t version;
-    uint8_t reserved;
-    uint8_t sequence;
-
-    uint8_t message_type : 7;
+#define RMCP_HEADER \
+    uint8_t version; \
+    uint8_t reserved; \
+    uint8_t sequence; \
+    uint8_t message_type : 7; \
     uint8_t message_class : 1;
 
+#define IPMI_SESSION_BASICS \
+        uint8_t authentication_type; \
+        uint32_t sequence_number; \
+        uint32_t session_id; \
+
+
+struct rmcp {
+    RMCP_HEADER
+
     struct ipmi_session {
-        uint8_t authentication_type;
-        uint32_t sequence_number;
-        uint32_t session_id;
+        IPMI_SESSION_BASICS
         uint8_t length;
     } session;
+
     struct ipmi_message message;
 };
 
 struct rmcp_with_auth {
-    uint8_t version;
-    uint8_t reserved;
-    uint8_t sequence;
-
-    uint8_t message_type : 7;
-    uint8_t message_class : 1;
+    RMCP_HEADER
 
     struct ipmi_session {
-        uint8_t authentication_type;
-        uint32_t sequence_number;
-        uint32_t session_id;
-
+        IPMI_SESSION_BASICS
         /* MD5 AuthCode: hash(password + Session ID + IPMI Message Data + session seq# + password) */
         uint8_t auth_code[16];
         uint8_t length;
     } session;
 
     struct ipmi_message message;
-}
+};
 #pragma pack()
