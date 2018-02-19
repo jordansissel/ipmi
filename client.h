@@ -24,7 +24,8 @@ namespace IPMI {
 
     void send(ChassisControlCommand);
     void receive(struct mbuf);
-    void handleGetChannelAuthenticationCapabilities(const GetChannelAuthenticationCapabilities&);
+    void handle(const GetChannelAuthenticationCapabilities&);
+    void handle(const GetSessionChallenge&);
     void begin();
 
   public:

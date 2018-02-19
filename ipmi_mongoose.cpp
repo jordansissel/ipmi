@@ -6,21 +6,23 @@ extern "C" {
     auto client = (IPMI::Client *) nc->user_data;
     switch (ev) {
       case MG_EV_CONNECT:
-        printf("handler CONNECT(%d)\n", ev);
+        // printf("handler CONNECT(%d)\n", ev);
         client->setConnection(nc);
         break;
       case MG_EV_RECV:
-        printf("handler RECV(%d) %zd bytes\n", ev, nc->recv_mbuf.len);
+        // printf("handler RECV(%d) %zd bytes\n", ev, nc->recv_mbuf.len);
         client->receivePacket(nc->recv_mbuf);
+        // Remove packet from buffer after processing:
+        mbuf_remove(&nc->recv_mbuf, nc->recv_mbuf.len);
         break;
       case MG_EV_SEND:
         printf("handler SEND(%d) %d bytes\n", ev, * (int *) ev_data);
         break;
       case MG_EV_POLL:
-        printf("handler POLL(%d)\n", ev);
+        // printf("handler POLL(%d)\n", ev);
         break;
       default:
-        printf("handler ??? (%d)\n", ev);
+        // printf("handler ??? (%d)\n", ev);
         break;
     }
     (void) client;

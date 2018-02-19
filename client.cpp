@@ -41,9 +41,9 @@ namespace IPMI {
     state = ClientState::NeedChannelAuthenticationCapabilities;
     printf("Begin... %s\n", stateToString(state));
     // Send the ChannelAuthenticationCapabilities packet
-    struct rmcp packet = getChannelAuthenticationCapabilities(AuthenticationCapability::Administrator);
-    mg_hexdumpf(stdout, &packet, 23);
-    mg_send(connection, (const void *)&packet, 23 /* compute this */);
+    struct rmcp rmcp = getChannelAuthenticationCapabilities(AuthenticationCapability::Administrator);
+    mg_hexdumpf(stdout, &rmcp, 23);
+    mg_send(connection, &rmcp, 23);;
   }
 
   void Client::receivePacket(struct mbuf buf) {
@@ -57,6 +57,7 @@ namespace IPMI {
         // If all is good, set state NeedSessionChallenge and send a GetSessionChallenge request
         break;
       case ClientState::NeedSessionChallenge:
+        receive(buf);
         // If all is good, set state NeedActivateSssion and send a ActivateSssion request
         break;
       case ClientState::NeedActivateSession: 
@@ -72,36 +73,63 @@ namespace IPMI {
         // After: Pop any command waiting in the queue and send it.
         break;
     }
+
   }
 
   void Client::receive(struct mbuf buf) {
     mg_hexdumpf(stdout, buf.buf, buf.len);
 
     struct rmcp *r = (struct rmcp *) buf.buf;
+    printf("COMMAND: %02x\n", r->message.command);
 
-    switch (r->session.message.command) {
+    switch (r->message.command) {
       case 0x38: /* GetChannelAuthenticationCapabilities */
-        handleGetChannelAuthenticationCapabilities(r->session.message.parameters.getChannelAuthenticationCapabilities);
+        handle(r->message.parameters.getChannelAuthenticationCapabilities);
+        break;
+      case 0x39: /* GetSessionChallenge */
+        handle(r->message.parameters.getSessionChallenge);
         break;
       default:
-        printf("Unknown command: %02x\n", r->session.message.command);
+        printf("Unknown command: %02x\n", r->message.command);
     }
-    printf("0x%02x -> 0x%02x command 0x%02x\n", r->session.message.source, r->session.message.target, r->session.message.command);
+    printf("0x%02x -> 0x%02x command 0x%02x\n", r->message.source, r->message.target, r->message.command);
   }
 
-  void Client::handleGetChannelAuthenticationCapabilities(const GetChannelAuthenticationCapabilities &message) {
-    auto response = message.Response;
-    if (response.completion_code != 0) {
-      printf("GetChannelAuthenticationCapabilities command failed: %d\n", response.completion_code);
+  void Client::handle(const GetSessionChallenge &message) {
+    if (message.response.completion_code != 0) {
+      printf("GetSessionChallenge command failed: %d\n", message.response.completion_code);
       return;
     }
 
-    if (!AUTH_TYPE_MD5(response.auth_type1)) {
+    printf("Temporary session id: %08x\n", message.response.session_id);
+    printf("Challenge:\n");
+    mg_hexdumpf(stdout, message.response.challenge, 16);
+
+    if (state == ClientState::NeedSessionChallenge) {
+        state = ClientState::NeedActivateSession;
+        // struct rmcp packet = getActivateSession()
+    }
+
+  }
+
+  void Client::handle(const GetChannelAuthenticationCapabilities &message) {
+    if (message.response.completion_code != 0) {
+      printf("GetChannelAuthenticationCapabilities command failed: %d\n", message.response.completion_code);
+      return;
+    }
+
+    if (!AUTH_TYPE_MD5(message.response.auth_type1)) {
       printf("Remote IPMI/BMC does not support MD5 authentication. Cannot continue.\n");
       return;
     }
 
     printf("getChannelAuthenticationCapabilities OK\n");
+    if (state == ClientState::NeedChannelAuthenticationCapabilities) {
+        state = ClientState::NeedSessionChallenge;
+        struct rmcp packet = getSessionChallenge();
+        mg_hexdumpf(stdout, &packet, 13+24+1);
+        mg_send(connection, (const void *)&packet, 13+24+1 /* XXX: compute this */);
+    }
   }
 
   void Client::setConnection(mg_connection *c) {

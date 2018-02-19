@@ -3,10 +3,6 @@
 #include "client.h"
 #include "ipmi_mongoose.h"
 
-void ipmi_client_connection_handler(struct mg_connection *nc, int ev, void *evdata, void *u) {
-
-}
-
 int main() {
   const auto client = new IPMI::Client;
   struct mg_mgr mgr;

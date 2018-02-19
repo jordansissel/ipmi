@@ -6,12 +6,21 @@ void parsePacket(struct mbuf);
 #define AUTH_TYPE_MD5(value) (value & 1<<2)
 
 #pragma pack(1)
+union ActivateSession {
+    struct Request {
+        uint8_t auth_code;
+        uint8_t auth_type;
+        uint8_t privilege;
+        uint8_t challenge;
+        uint32_t sequence;
+    };
+};
 union GetChannelAuthenticationCapabilities {
     struct Request {
         uint8_t channel;
         uint8_t privileges;
         uint8_t checksum;
-    } Request;
+    } request;
 
     struct Response {
         uint8_t completion_code;
@@ -21,7 +30,21 @@ union GetChannelAuthenticationCapabilities {
         uint8_t reserved;
         uint8_t oem1, oem2, oem3;
         uint8_t oem_aux;
-    } Response;
+    } response;
+};
+
+/* IPMI 2nd gen v2r1 section 22.16 */
+union GetSessionChallenge {
+    struct Request {
+        uint8_t auth_type;
+        uint8_t username[16];
+        uint8_t checksum;
+    } request;
+    struct Response {
+        uint8_t completion_code;
+        uint32_t session_id;
+        uint8_t challenge[16];
+    } response;
 };
 
 struct ipmi_message {
@@ -37,6 +60,7 @@ struct ipmi_message {
 
     union parameters {
         union GetChannelAuthenticationCapabilities getChannelAuthenticationCapabilities;
+        union GetSessionChallenge getSessionChallenge;
     } parameters;
 };
 
@@ -53,7 +77,7 @@ struct rmcp {
         uint32_t sequence_number;
         uint32_t session_id;
         uint8_t length;
-        struct ipmi_message message;
     } session;
+    struct ipmi_message message;
 };
 #pragma pack()

@@ -20,23 +20,67 @@ struct rmcp getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability 
     // skip writing auth code because there is no authentication code when auth type is NONE.
 
     r.session.length = 9; /* payload length: 7 (header) + 2 (command args) */
-    r.session.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
-    r.session.message.netFn = 0x06; /* Application Request */
-    r.session.message.targetLun = 0;
-    r.session.message.checksum1 = -(0x20 + (0x06<<2));
+    r.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
+    r.message.netFn = 0x06; /* Application Request */
+    r.message.targetLun = 0;
+    r.message.checksum1 = -(0x20 + (0x06<<2));
 
-    r.session.message.source = 0x81;
-    r.session.message.sequence = 0x01;
-    r.session.message.sourceLun = 0x00;
-    r.session.message.command = 0x38;
-    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.channel = 0x0e; /* Use current channel */
-    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.privileges = (uint8_t)authCap; /* Request Administrator privileges */
-    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.checksum = -( 
-        + r.session.message.source
-        + (r.session.message.sequence << 2 | r.session.message.sourceLun)
-        + r.session.message.command
-        + r.session.message.parameters.getChannelAuthenticationCapabilities.Request.channel 
-        + r.session.message.parameters.getChannelAuthenticationCapabilities.Request.privileges
+    r.message.source = 0x81;
+    r.message.sequence = 0x01;
+    r.message.sourceLun = 0x00;
+    r.message.command = 0x38;
+    r.message.parameters.getChannelAuthenticationCapabilities.request.channel = 0x0e; /* Use current channel */
+    r.message.parameters.getChannelAuthenticationCapabilities.request.privileges = (uint8_t)authCap; /* Request Administrator privileges */
+    r.message.parameters.getChannelAuthenticationCapabilities.request.checksum = -( 
+        + r.message.source
+        + (r.message.sequence << 2 | r.message.sourceLun)
+        + r.message.command
+        + r.message.parameters.getChannelAuthenticationCapabilities.request.channel 
+        + r.message.parameters.getChannelAuthenticationCapabilities.request.privileges
+    );
+
+    return r;
+}
+
+/* Only MD5 supported right now, so no argument given. */
+struct rmcp getSessionChallenge() { 
+    struct rmcp r;
+    r.version = 0x06;
+    r.reserved = 0;
+    r.sequence = 0xff;
+    r.message_type = 0x07;
+    r.message_class = 0;
+
+    r.session.authentication_type = 0; /* Authentication Type NONE. Follows spec for Get Channel Authentication Capabilities Command */
+    r.session.sequence_number = 0;/* sequence number unused in this request */
+    r.session.session_id = 0;/* session id unused in this request */
+    // skip writing auth code because there is no authentication code when auth type is NONE.
+
+    r.session.length = 24; /* payload length: 7 (header) + 17 (command args) */
+    r.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
+    r.message.netFn = 0x06; /* Application Request */
+    r.message.targetLun = 0;
+    r.message.checksum1 = -(0x20 + (0x06<<2));
+
+    r.message.source = 0x81;
+    r.message.sequence = 0x01;
+    r.message.sourceLun = 0x00;
+    r.message.command = 0x39; /* Get Session Challenge == 0x39 */
+
+    /* XXX: Make auth type a parameter */
+    r.message.parameters.getSessionChallenge.request.auth_type = 0x02; /* md5 */
+
+    /* XXX: Make username a parameter */
+    memset(r.message.parameters.getSessionChallenge.request.username, 0, 16);
+    memcpy(r.message.parameters.getSessionChallenge.request.username, "root", 4);
+
+    r.message.parameters.getSessionChallenge.request.checksum = -( 
+        + r.message.source
+        + (r.message.sequence << 2 | r.message.sourceLun)
+        + r.message.command
+        + r.message.parameters.getSessionChallenge.request.auth_type 
+        // XXX: When username is configurable, this needs to change
+        + 'r' + 'o' + 'o' + 't'
     );
 
     return r;
