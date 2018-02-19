@@ -80,4 +80,25 @@ struct rmcp {
     } session;
     struct ipmi_message message;
 };
+
+struct rmcp_with_auth {
+    uint8_t version;
+    uint8_t reserved;
+    uint8_t sequence;
+
+    uint8_t message_type : 7;
+    uint8_t message_class : 1;
+
+    struct ipmi_session {
+        uint8_t authentication_type;
+        uint32_t sequence_number;
+        uint32_t session_id;
+
+        /* MD5 AuthCode: hash(password + Session ID + IPMI Message Data + session seq# + password) */
+        uint8_t auth_code[16];
+        uint8_t length;
+    } session;
+
+    struct ipmi_message message;
+}
 #pragma pack()
