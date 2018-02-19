@@ -1,13 +1,17 @@
 CFLAGS=-Wall -g
 CXXFLAGS=-Wall -std=c++11 -g
 
+.PHONY: build
 build: ipmi
 
+.PHONY: clean
 clean:
 	rm -f *.o ipmi
 
-ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o ipmi_packet.o
+ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o ipmi_packet.o client.o
 	$(CXX) $(LDFLAGS) -o $@ $^
+
+mongoose.o: mongoose.c
 
 ipmi_packet.cpp: ipmi_packet.h
 ipmi.o: ipmi.cpp ipmi.h ipmi_packet.h

@@ -6,118 +6,39 @@
 #include "ipmi_packet.h"
 #include "mongoose.h"
 
-namespace IPMI {
-  static char unknown_buf[50];
-  static const char *stateToString(const ClientState s) {
-    switch (s) {
-    case ClientState::Initial:
-      return "Initial";
-    case ClientState::NeedChannelAuthenticationCapabilities:
-      return "NeedChannelAuthenticationCapabilities";
-    case ClientState::NeedSessionChallenge:
-      return "NeedSessionChallenge";
-    case ClientState::NeedActivateSession:
-      return "NeedActivateSession";
-    case ClientState::NeedSetSessionPrivilegeLevel:
-      return "NeedSetSessionPrivilegeLevel";
-    case ClientState::SessionReady:
-      return "SessionReady";
-    }
+struct rmcp getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap) {
+    struct rmcp r;
+    r.version = 0x06;
+    r.reserved = 0;
+    r.sequence = 0xff;
+    r.message_type = 0x07;
+    r.message_class = 0;
 
-    sprintf(unknown_buf, "Unknown state: %d", (int) s);
-    return unknown_buf;
-  }
+    r.session.authentication_type = 0; /* Authentication Type NONE. Follows spec for Get Channel Authentication Capabilities Command */
+    r.session.sequence_number = 0;/* sequence number unused in this request */
+    r.session.session_id = 0;/* session id unused in this request */
+    // skip writing auth code because there is no authentication code when auth type is NONE.
 
-  void Client::send(ChassisControlCommand command) {
-    printf("send() state = %s\n", stateToString(state));
-    requestQueue.push_back(command);
+    r.session.length = 9; /* payload length: 7 (header) + 2 (command args) */
+    r.session.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
+    r.session.message.netFn = 0x06; /* Application Request */
+    r.session.message.targetLun = 0;
+    r.session.message.checksum1 = -(0x20 + (0x06<<2));
 
-    if (state == ClientState::Initial && connection != NULL) {
-      begin();
-    }
-  }
+    r.session.message.source = 0x81;
+    r.session.message.sequence = 0x01;
+    r.session.message.sourceLun = 0x00;
+    r.session.message.command = 0x38;
+    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.channel = 0x0e; /* Use current channel */
+    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.privileges = (uint8_t)authCap; /* Request Administrator privileges */
+    r.session.message.parameters.getChannelAuthenticationCapabilities.Request.checksum = -( 
+        + r.session.message.source
+        + (r.session.message.sequence << 2 | r.session.message.sourceLun)
+        + r.session.message.command
+        + r.session.message.parameters.getChannelAuthenticationCapabilities.Request.channel 
+        + r.session.message.parameters.getChannelAuthenticationCapabilities.Request.privileges
+    );
 
-  void Client::chassisControl(ChassisControlCommand command) {
-    printf("State: %s\n", stateToString(state));
-    send(command);
-  }
-
-
-  void Client::begin() {
-    state = ClientState::NeedChannelAuthenticationCapabilities;
-    printf("Begin... %s\n", stateToString(state));
-    // Send the ChannelAuthenticationCapabilities packet
-    struct rmcp packet = getChannelAuthenticationCapabilities(AuthenticationCapability::Administrator);
-    mg_hexdumpf(stdout, &packet, 23);
-    mg_send(connection, (const void *)&packet, 23 /* compute this */);
-  }
-
-  void Client::receivePacket(struct mbuf buf) {
-    printf("receivePacket() state = %s\n", stateToString(state));
-    switch (state) {
-      case ClientState::Initial:
-        begin();
-        break;
-      case ClientState::NeedChannelAuthenticationCapabilities:
-        receive(buf);
-        // If all is good, set state NeedSessionChallenge and send a GetSessionChallenge request
-        break;
-      case ClientState::NeedSessionChallenge:
-        // If all is good, set state NeedActivateSssion and send a ActivateSssion request
-        break;
-      case ClientState::NeedActivateSession: 
-        // If all is good, set state NeedActivateSssion and send a SetSessionPrivilegeLevel request
-        break;
-      case ClientState::NeedSetSessionPrivilegeLevel:
-        // If all is good, set state SessionReady
-
-        // After: Pop any command waiting in the queue and send it.
-        break;
-      case ClientState::SessionReady: 
-        // what now?
-        // After: Pop any command waiting in the queue and send it.
-        break;
-    }
-  }
-
-  void Client::receive(struct mbuf buf) {
-    mg_hexdumpf(stdout, buf.buf, buf.len);
-
-    struct rmcp *r = (struct rmcp *) buf.buf;
-
-    switch (r->session.message.command) {
-      case 0x38; /* GetChannelAuthenticationCapabilities */
-        break;
-      default:
-        printf("Unknown command: %02x\n", r->session.message.command);
-    }
-    printf("0x%02x -> 0x%02x command 0x%02x\n", r->session.message.source, r->session.message.target, r->session.message.command);
-  }
-
-  void Client::handleGetChannelAuthenticationCapabilities(struct mbuf buf) {
-    uint8_t channelNumber, authTypeSupport; 
-
-    // Check completion code == 0
-    insist(buf.buf[20] == 0, "GetChannelAuthenticationCapabilities completion code was nonzero");
-
-    channelNumber = (uint8_t) buf.buf[21];
-
-    uint16_t authSupport = buf.buf[22] << 8 | buf.buf[23];
-
-    if (authSupport & (1<<10)) { printf("MD5 supported\n"); }
-    if (authSupport & (1<<9)) { printf("MD2 supported\n"); }
-    if (authSupport & (1<<12)) { printf("straight password supported\n"); }
-  }
-
-  void Client::setConnection(mg_connection *c) {
-    state = ClientState::Initial;
-    connection = c;
-
-    if (requestQueue.size() > 0) {
-      begin();
-    }
-  }
-
-
-};
+    return r;
+}
 

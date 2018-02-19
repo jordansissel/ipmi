@@ -1,12 +1,29 @@
 #pragma once
 #include "mongoose.h"
-#include "ipmi.h"
-
-struct rmcp getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap);
 
 void parsePacket(struct mbuf);
 
+#define AUTH_TYPE_MD5(value) (value & 1<<2)
+
 #pragma pack(1)
+union GetChannelAuthenticationCapabilities {
+    struct Request {
+        uint8_t channel;
+        uint8_t privileges;
+        uint8_t checksum;
+    } Request;
+
+    struct Response {
+        uint8_t completion_code;
+        uint8_t channel;
+        uint8_t auth_type1;
+        uint8_t auth_type2;
+        uint8_t reserved;
+        uint8_t oem1, oem2, oem3;
+        uint8_t oem_aux;
+    } Response;
+};
+
 struct ipmi_message {
     uint8_t target;
     uint8_t targetLun : 2;
@@ -19,11 +36,7 @@ struct ipmi_message {
     uint8_t command;
 
     union parameters {
-        struct GetChannelAuthenticationCapabilities {
-            uint8_t channel;
-            uint8_t privileges;
-            uint8_t checksum;
-        } GetChannelAuthenticationCapabilities;
+        union GetChannelAuthenticationCapabilities getChannelAuthenticationCapabilities;
     } parameters;
 };
 

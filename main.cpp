@@ -1,6 +1,6 @@
-#include "mgos.h"
+#include "mongoose.h"
 #include "insist.h"
-#include "ipmi.h"
+#include "client.h"
 #include "ipmi_mongoose.h"
 
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev, void *evdata, void *u) {
@@ -8,7 +8,13 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev, void *evda
 }
 
 int main() {
-  mgos_connect("udp://pork-ipmi:623", ipmi_client_connection_handler, NULL);
+  const auto client = new IPMI::Client;
+  struct mg_mgr mgr;
+  mg_mgr_init(&mgr, NULL);
+
+  struct mg_connect_opts opts = { .user_data = client };
+
+  mg_connect_opt(&mgr, "udp://pork-ipmi:623", ipmi_client_connection_handler, opts);
 
   client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
 

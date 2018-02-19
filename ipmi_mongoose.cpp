@@ -1,5 +1,5 @@
 #include "mongoose.h"
-#include "ipmi.h"
+#include "client.h"
 
 extern "C" {
   void ipmi_client_connection_handler(struct mg_connection *nc, int ev, void *ev_data) {
