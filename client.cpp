@@ -107,7 +107,7 @@ namespace IPMI {
 
     if (state == ClientState::NeedSessionChallenge) {
         state = ClientState::NeedActivateSession;
-        struct rmcp_with_auth packet = getActivateSession();
+        struct rmcp_with_auth packet = getActivateSession(message.response.challenge);
         // xxx: compute auth code using message.response.challenge
     }
 

@@ -30,7 +30,7 @@ namespace IPMI {
 
 struct rmcp getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap);
 struct rmcp getSessionChallenge();
-struct rmcp_with_auth getActivateSession();
+struct rmcp_with_auth getActivateSession(const uint8_t challenge[16]);
 
 #if 0
 namespace IPMI {

@@ -85,7 +85,8 @@ struct rmcp getSessionChallenge() {
 
     return r;
 }
-struct rmcp_with_auth getActivateSession(uint8_t challenge[16]) {
+
+struct rmcp_with_auth getActivateSession(const uint8_t challenge[16]) {
     struct rmcp_with_auth r;
     r.version = 0x06;
     r.reserved = 0;
