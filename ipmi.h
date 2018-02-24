@@ -1,36 +1,39 @@
 #pragma once
 
 #include "insist.h"
-#include <stdint.h>
-#include <list>
-#include <string>
-#include "mongoose.h"
 #include "ipmi_packet.h"
+#include "mongoose.h"
+#include <list>
+#include <stdint.h>
+#include <string>
 
 namespace IPMI {
-  enum class AuthenticationCapability {
-    Reserved = 0,
-    Callback = 1,
-    User = 2,
-    Operator = 3,
-    Administrator = 4,
-    OEM = 5
-  };
-
-  enum class ChassisControlCommand {
-    PowerDown = 0,
-    PowerUp = 1,
-    PowerCycle = 2,
-    HardReset = 3,
-    PulseDiagnosticInterrupt = 5,
-    SoftShutdown = 5
-  };
-
+enum class AuthenticationCapability {
+  Reserved = 0,
+  Callback = 1,
+  User = 2,
+  Operator = 3,
+  Administrator = 4,
+  OEM = 5
 };
 
-struct rmcp getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap);
+enum class ChassisControlCommand {
+  PowerDown = 0,
+  PowerUp = 1,
+  PowerCycle = 2,
+  HardReset = 3,
+  PulseDiagnosticInterrupt = 5,
+  SoftShutdown = 5
+};
+
+}; // namespace IPMI
+
+struct rmcp
+getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap);
 struct rmcp getSessionChallenge();
-struct rmcp_with_auth getActivateSession(const uint8_t challenge[16]);
+struct rmcp_with_auth getActivateSession(const uint8_t password[16],
+                                         const uint8_t challenge[16],
+                                         const uint32_t session_id);
 
 #if 0
 namespace IPMI {
@@ -139,5 +142,4 @@ namespace IPMI {
   }
 }
 
-
-#endif 
+#endif

@@ -1,5 +1,6 @@
 CFLAGS=-Wall -g
 CXXFLAGS=-Wall -std=c++11 -g
+LDFLAGS+=-lssl -lcrypto
 
 .PHONY: build
 build: ipmi
@@ -9,7 +10,7 @@ clean:
 	rm -f *.o ipmi
 
 ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o client.o
-	$(CXX) $(LDFLAGS) -o $@ $^
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 mongoose.o: mongoose.c
 
