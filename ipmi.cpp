@@ -153,6 +153,13 @@ void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf) {
   Session session;
   GetChannelAuthenticationCapabilities::Response response;
 
+  // Sum of all bytes 17..end should equal 0 (checksum is negative of sum)
+  uint8_t value = 0;
+  for (size_t i = 17; i < buf.len; i++) {
+    value += (uint8_t)buf.buf[i];
+  }
+  insist(value == 0, "Checksum failed on receiving packet");
+
   rmcp.read(buf);
   session.read(buf);
   ipmb.read(buf);
