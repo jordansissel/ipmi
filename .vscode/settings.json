@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "string": "cpp"
+    },
+    "editor.formatOnType": true,
+    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: LLVM }",
+    "editor.tabSize": 2
+}
