@@ -1,11 +1,5 @@
-#pragma once
-
-#include "insist.h"
-#include "ipmi_packet.h"
 #include "mongoose.h"
-#include <list>
 #include <stdint.h>
-#include <string>
 
 namespace IPMI {
 enum class AuthenticationCapability {
@@ -25,121 +19,99 @@ enum class ChassisControlCommand {
   PulseDiagnosticInterrupt = 5,
   SoftShutdown = 5
 };
+class Serializable {
+public:
+  virtual void write(struct mbuf &out) = 0;
+  virtual void read(struct mbuf &out) = 0;
+};
 
-}; // namespace IPMI
+class Command : public Serializable {
+public:
+  virtual uint8_t length() = 0;
+};
 
-struct rmcp
-getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap);
-struct rmcp getSessionChallenge();
-struct rmcp_with_auth getActivateSession(const uint8_t password[16],
-                                         const uint8_t challenge[16],
-                                         const uint32_t session_id);
+class RMCP : public Serializable {
+  uint8_t version;       /* Per spec: 0x06, ASF 2.0 */
+  uint8_t reserved;      /* reserved by spec */
+  uint8_t sequence;      /* rmcp sequence number */
+  uint8_t message_class; /* the kind of message. "normal ipmi" is 0x07 */
 
-#if 0
-namespace IPMI {
-  static void getChannelAuthenticationCapabilities(AuthenticationCapability authCap, uint8_t **packet, size_t *length) {
-    // IPMI v2 rev 1
-    // Section 13.1.3 RMCP Header
-    // 0x06 /* Version */
-    // 0x00 /* Reserved */
-    // 0xFF /* Sequence Number. Not used in this request. */
-    // 0x?? /* Class of message */
-    //  -> bit 7: Normal (0) or ACK (1)
-    //  -> bits 6:5: Reserved/unused
-    //  -> bits 4:0: 0-5 reserved, 6 ASF, 7 IPMI, 8 OEM, Others reserved.
+public:
+  RMCP() : version(0x06), reserved(0x00), sequence(0xff), message_class(0x07) {}
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+};
 
-    /* Session Request Data:
-     * [1 byte] Auth Type
-     *  -> none (0), md2 (1), md5 (2), reserved (3), password (4), oem (5), rcmp+ (6)
-     * [4 byte] session sequence number
-     * [4 byte] session id
-     * [1 byte] payload length
-     * [x byte] payload
-     * [1 byte] "legacy pad"
-     */
+class Session : public Serializable {
+  uint8_t auth_type;
+  uint32_t sequence;
+  uint32_t id;
+  uint8_t length;
 
-    /* IPMB message format
-     * [1 byte] 'rsAddr' 
-     * [1 byte] 'event/rsLUN' aka netFn
-     * [1 byte] 'header checksum'
-     * [1 byte] rqAddr
-     * [1 byte] rqSeq/rqLUN 
-     * [1 byte] command
-     * [0+ byte] request data bytes
-     * [1 byte] checksum
-     */
-    
-    /* Request data
-     * Channel number [1 byte]
-     *  -> bit 7: ipmi 1.5 (0), ipmi 2.0+ (1)
-     *  -> bit [6:4] reserved
-     *  -> bit [3:0] channel number (0 through 0xB, 0xF)
-     * Requested Maximum Privilege Level
-     *  -> bit [7:4] reserved
-     *  -> bit [3:0] requested level:
-     *    reserved(0), callback(1), user(2), operator(3), administrator(4), oem(5)
-     */
+public:
+  Session(){};
+  Session(uint8_t auth_type, uint32_t sequence, uint32_t id, uint8_t length)
+      : auth_type(auth_type), sequence(sequence), id(id), length(length) {}
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+};
 
-    /* Per IPMI v2r1 spec:
-     * > for IPMI ... LAN connections the responder's address byte should be set
-     * > to 81h, which is the software ID (SWID) for the remote console software.
-     *
-     * Also there are several references that address 20h is the BMC address.
-     *
-     * So I think the request source must be 81h and target is 20h for commands like reset.
-     * Sniffing the packets of ipmiutil shows this to be the case (`ipmiutil reset ...`)
-     */
+const uint8_t IPMB_SIZE = 6;
+const uint8_t CHECKSUM_SIZE = 1;
+class IPMB : public Serializable {
+  uint8_t target;
+  uint8_t targetLun : 2;
+  uint8_t netFn : 6;
+  uint8_t checksum;
 
-    /* Payload size:
-     * 4 (RMCP header)
-     * 10 (IPMI session header)
-     * ? (IPMI payload size)
-     *   6 IPMB source+target+checksum+command
-     *   ? command data
-     *   1 checksum
-     */
+  uint8_t source;
+  uint8_t sourceLun : 2;
+  uint8_t sequence : 6;
 
-    /* The command here is `Get Channel Authentication Capabilities`
-     * In the spec, Table G shows this to be:
-     * NetFn: App, CMD 38h
-     * This command has 2 byte payload: channel number, and requested maximum privilege level
-     */
+public:
+  uint8_t command;
+  IPMB() {}
+  IPMB(uint8_t netFn, uint8_t sequence, uint8_t command)
+      : target(0x20), targetLun(0x0), netFn(netFn), checksum(-(0x20 + netFn)),
+        source(0x81), sourceLun(0x0), sequence(sequence), command(command) {}
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+};
 
-    *length = 4 + 10 + 7 + 2;
-    uint8_t *p = *packet = (uint8_t *) calloc(1, *length);
-    if (p == NULL) {
-      // calloc failed. Nothing for us to do now but abandon.
-      *length = 0;
-      return;
-    }
+namespace GetChannelAuthenticationCapabilities {
+class Request : public Command {
+  uint8_t channel;
+  uint8_t privileges;
 
-    p[0] = 0x06; /* version */
-    p[1] = 0x00; /* reserved */
-    p[2] = 0xFF; /* Sequence Number; not used in this request. Spec says to set to 255 in this case. */
-    p[3] = 0x7; /* Message Class: Normal (0 @ bit 7) | IPMI (0x7) */
+public:
+  Request()
+      : channel(0x0e),
+        privileges((uint8_t)AuthenticationCapability::Administrator) {}
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length();
+};
 
-    p[4] = 0; /* Authentication Type NONE. Follows spec for Get Channel Authentication Capabilities Command */
-    // bytes 5-8 stay zero (sequence number unused in this request)
-    // bytes 9-12 stay zero (session id unused in this request)
-    // there is no authentication code when auth type is NONE.
+class Response : public Command {
+  uint8_t completion_code;
+  uint8_t channel;
+  uint8_t auth_type1;
+  uint8_t auth_type2;
+  uint8_t reserved;
+  uint8_t oem1, oem2, oem3;
+  uint8_t oem_aux;
 
-    p[13] = (uint8_t) 9; /* payload length: 7 (header) + 2 (command args) */
-    p[14] = 0x20; /* BMC's  responder address (i2c terminology) */
-    // combo field: NetFN + LUN. Lower 2 bits are the LUN. Upper 6 is the NetFN */
-    p[15] = 0x06 << 2; /* `App` - Application Request Network Function */
-    p[16] = -(p[14] + p[15]);
-    /* Spec: "When the checksum and the bytes are added together, modulo 256, the result should be 0" */
-    insist((uint8_t)(p[14] + p[15] + p[16]) == 0, "IPMB requester-checksum failed: %d + %d + %d != 0 (%d)", p[14], p[15], p[16], (p[14] + p[15] + p[16]));
+public:
+  Response() {}
 
-    p[17] = 0x81; /* Requester address. 0x81 == "software id for the remote console" */
-    // combo field: Sequence + LUN. Lower 2 bits are the LUN. Upper 6 is the sequence number */
-    p[18] = 0x01 << 2; /* Requester sequence + LUN */
-    p[19] = 0x38; /* Get Channel Authentication Capabilities command */
-    p[20] = 0x0e; /* Use current channel */
-    p[21] = (uint8_t) AuthenticationCapability::Administrator; /* Request Administrator privileges */
-    p[22] = -(p[17] + p[18] + p[19] + p[20] + p[21]);
-    insist((uint8_t)((p[17] + p[18] + p[19] + p[20] + p[21]) + p[22]) == 0, "IPMB requester-command checksum failed.");
-  }
-}
+  bool hasMD5() { return auth_type1 & (1 << 2); }
 
-#endif
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length() { return 9; };
+};
+} // namespace GetChannelAuthenticationCapabilities
+
+void getChannelAuthenticationCapabilities(struct mbuf &buf);
+void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf);
+} // namespace IPMI

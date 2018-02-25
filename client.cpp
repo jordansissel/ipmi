@@ -57,30 +57,12 @@ void Client::receivePacket(struct mbuf buf) {
     begin();
     break;
   case ClientState::NeedChannelAuthenticationCapabilities:
-#define TEST_CAP                                                               \
-  "\x06\x00\xff\x07"                                                           \
-  "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x81\x1c\x63\x20\x04\x38"           \
-  "\x00\x01\x14\x04\x00\x00\x00\x00\x00\x8b"
-
-    mbuf_append(&test, TEST_CAP, sizeof(TEST_CAP));
-
-    // receive(buf);
-    receive(test);
+    receive(buf);
     // If all is good, set state NeedSessionChallenge and send a
     // GetSessionChallenge request
     break;
   case ClientState::NeedSessionChallenge:
-#define SESSIONCHALLENGE                                                       \
-  "\x06\x00\xff\x07"                                                           \
-  "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x81\x1c\x63\x20\x04\x39"           \
-  \
-"\x00\xa6\xf5\x6f\x77\xf2\xe0\xb8\x45\xe3\xb6\x4a\x83\xc2\xb5\xef"                                                                           \
-  \
-"\x1c\x47\x7f\xbe\x14\xd3"
-
-    mbuf_append(&test, SESSIONCHALLENGE, sizeof(SESSIONCHALLENGE));
-    receive(test);
-    // receive(buf);
+    receive(buf);
     // If all is good, set state NeedActivateSssion and send a
     // ActivateSssion request
     break;

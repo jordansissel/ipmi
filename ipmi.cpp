@@ -1,169 +1,163 @@
 #include "ipmi.h"
 #include "insist.h"
-#include "openssl/md5.h"
-#include <stdint.h>
-#include <string>
-
-#include "ipmi_packet.h"
 #include "mongoose.h"
+#include <stdint.h>
 
-struct rmcp
-getChannelAuthenticationCapabilities(IPMI::AuthenticationCapability authCap) {
-  struct rmcp r;
-  r.version = 0x06;
-  r.reserved = 0;
-  r.sequence = 0xff;
-  r.message_type = 0x07;
-  r.message_class = 0;
-
-  r.session.authentication_type = 0; /* Authentication Type NONE. Follows spec
-                                        for Get Channel Authentication
-                                        Capabilities Command */
-  r.session.sequence_number = 0; /* sequence number unused in this request */
-  r.session.session_id = 0;      /* session id unused in this request */
-  // skip writing auth code because there is no authentication code when auth
-  // type is NONE.
-
-  r.session.length = 9;    /* payload length: 7 (header) + 2 (command args) */
-  r.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
-  r.message.netFn = 0x06;  /* Application Request */
-  r.message.targetLun = 0;
-  r.message.checksum1 = -(0x20 + (0x06 << 2));
-
-  r.message.source = 0x81;
-  r.message.sequence = 0x01;
-  r.message.sourceLun = 0x00;
-  r.message.command = 0x38;
-  r.message.parameters.getChannelAuthenticationCapabilities.request.channel =
-      0x0e; /* Use current channel */
-  r.message.parameters.getChannelAuthenticationCapabilities.request.privileges =
-      (uint8_t)authCap; /* Request Administrator privileges */
-  r.message.parameters.getChannelAuthenticationCapabilities.request.checksum =
-      -(+r.message.source + (r.message.sequence << 2 | r.message.sourceLun) +
-        r.message.command +
-        r.message.parameters.getChannelAuthenticationCapabilities.request
-            .channel +
-        r.message.parameters.getChannelAuthenticationCapabilities.request
-            .privileges);
-
-  return r;
+namespace IPMI {
+void RMCP::write(struct mbuf &out) {
+  mbuf_append(&out, &version, 1);
+  mbuf_append(&out, &reserved, 1);
+  mbuf_append(&out, &sequence, 1);
+  mbuf_append(&out, &message_class, 1);
 }
 
-/* Only MD5 supported right now, so no argument given. */
-struct rmcp getSessionChallenge() {
-  struct rmcp r;
-  r.version = 0x06;
-  r.reserved = 0;
-  r.sequence = 0xff;
-  r.message_type = 0x07;
-  r.message_class = 0;
+void RMCP::read(struct mbuf &in) {
+  insist(in.len >= 4,
+         "Need at least 4 bytes for RMCP header, but have %zd bytes.", in.len);
 
-  r.session.authentication_type = 0; /* Authentication Type NONE. Follows spec
-                                        for Get Channel Authentication
-                                        Capabilities Command */
-  r.session.sequence_number = 0; /* sequence number unused in this request */
-  r.session.session_id = 0;      /* session id unused in this request */
-  // skip writing auth code because there is no authentication code when auth
-  // type is NONE.
-
-  r.session.length = 24;   /* payload length: 7 (header) + 17 (command args) */
-  r.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
-  r.message.netFn = 0x06;  /* Application Request */
-  r.message.targetLun = 0;
-  r.message.checksum1 = -(0x20 + (0x06 << 2));
-
-  r.message.source = 0x81;
-  r.message.sequence = 0x01;
-  r.message.sourceLun = 0x00;
-  r.message.command = 0x39; /* Get Session Challenge == 0x39 */
-
-  /* XXX: Make auth type a parameter */
-  r.message.parameters.getSessionChallenge.request.auth_type = 0x02; /* md5 */
-
-  /* XXX: Make username a parameter */
-  memset(r.message.parameters.getSessionChallenge.request.username, 0, 16);
-  memcpy(r.message.parameters.getSessionChallenge.request.username, "root", 4);
-
-  r.message.parameters.getSessionChallenge.request.checksum =
-      -(+r.message.source + (r.message.sequence << 2 | r.message.sourceLun) +
-        r.message.command +
-        r.message.parameters.getSessionChallenge.request.auth_type
-        // XXX: When username is configurable, this needs to change
-        + 'r' + 'o' + 'o' + 't');
-
-  return r;
+  version = in.buf[0];
+  reserved = in.buf[1];
+  sequence = in.buf[2];
+  message_class = in.buf[3];
+  mbuf_remove(&in, 4);
 }
 
-struct rmcp_with_auth getActivateSession(const uint8_t password[16],
-                                         const uint8_t challenge[16],
-                                         const uint32_t session_id) {
-  struct rmcp_with_auth r;
-  r.version = 0x06;
-  r.reserved = 0;
-  r.sequence = 0xff;
-  r.message_type = 0x07;
-  r.message_class = 0;
+void Session::write(struct mbuf &out) {
+  uint32_t networkbytes;
+  mbuf_append(&out, &auth_type, 1);
 
-  r.session.authentication_type = 0x02; /* MD5 */
-  r.session.sequence_number = 0; /* sequence number unused in this request */
-  r.session.session_id = session_id;
+  networkbytes = htonl(sequence);
+  mbuf_append(&out, &networkbytes, 4);
 
-  r.session.length = 29;   /* payload length: 7 (header) + 11 (command args) */
-  r.message.target = 0x20; /* BMC's  responder address (i2c terminology) */
-  r.message.netFn = 0x06;  /* Application Request */
-  r.message.targetLun = 0;
-  r.message.checksum1 = -(0x20 + (0x06 << 2));
+  networkbytes = htonl(id);
+  mbuf_append(&out, &networkbytes, 4);
 
-  r.message.source = 0x81;
-  r.message.sequence = 0x01;
-  r.message.sourceLun = 0x00;
-  r.message.command = 0x3A; /* Activate Session == 0x3A */
+  mbuf_append(&out, &length, 1);
+}
 
-  /* XXX: Make auth type a parameter */
-  auto request = &r.message.parameters.activateSession.request;
-  request->auth_type = 0x02; /* MD5 */
-  request->privilege = 0x04; /* Administrator */
-  memcpy(&request->challenge, challenge, 16);
+void Session::read(struct mbuf &in) {
+  insist(in.len >= 10,
+         "Need at least 10 bytes for Session header, but have %zd bytes",
+         in.len);
+  auth_type = in.buf[0];
+  memcpy(&sequence, in.buf + 1, 4);
+  sequence = htonl(sequence);
+  memcpy(&id, in.buf + 5, 4);
+  id = htonl(id);
 
-  /* XXX: Randomize this initial sequence number */
-  request->sequence = 0x00; /* Initial sequence number */
+  length = in.buf[9];
+  mbuf_remove(&in, 10);
+}
 
-  /* Compute the checksum */
-  request->checksum =
-      r.message.source + (r.message.sequence << 2 | r.message.sourceLun) +
-      r.message.command + request->auth_type + request->privilege;
+void IPMB::write(struct mbuf &out) {
+  mbuf_append(&out, &target, 1);
+  uint8_t scratch = (netFn << 2) | targetLun;
+  mbuf_append(&out, &scratch, 1);
 
-  for (uint8_t i = 0; i < 16; i++) {
-    request->checksum += request->challenge[i];
+  // Compute checksum
+  checksum = -(target + scratch);
+  mbuf_append(&out, &checksum, 1);
+
+  mbuf_append(&out, &source, 1);
+  scratch = (sequence << 2) | sourceLun;
+  mbuf_append(&out, &scratch, 1);
+  mbuf_append(&out, &command, 1);
+}
+
+void IPMB::read(struct mbuf &in) {
+  insist(in.len >= 6,
+         "Need at least 6 bytes for IPMB header, but have %zd bytes", in.len);
+
+  target = in.buf[0];
+  netFn = in.buf[1] >> 2;
+  targetLun = in.buf[1] & 3;
+  checksum = in.buf[2];
+
+  source = in.buf[3];
+  sequence = in.buf[4] >> 2;
+  sourceLun = in.buf[4] & 3;
+  command = in.buf[5];
+  mbuf_remove(&in, 6);
+}
+
+namespace GetChannelAuthenticationCapabilities {
+uint8_t Request::length() { return IPMB_SIZE + 2 + CHECKSUM_SIZE; }
+
+void Request::write(struct mbuf &out) {
+  mbuf_append(&out, &channel, 1);
+  mbuf_append(&out, &privileges, 1);
+}
+
+void Request::read(struct mbuf &in) {
+  insist(in.len >= 2,
+         "Need at least 2 bytes for GetChannelAuthenticationCapabities Request "
+         "header, but have %zd bytes",
+         in.len);
+
+  channel = in.buf[0];
+  privileges = in.buf[1];
+
+  mbuf_remove(&in, 2);
+}
+
+void Response::write(struct mbuf &out) { insist(false, "Not implemented."); }
+
+void Response::read(struct mbuf &in) {
+  insist(in.len >= 9,
+         "Need at least 9 bytes for GetChannelAuthenticationCapabities Request "
+         "header, but have %zd bytes",
+         in.len);
+
+  completion_code = in.buf[0];
+  channel = in.buf[1];
+  auth_type1 = in.buf[2];
+  auth_type2 = in.buf[3];
+  reserved = in.buf[4];
+  oem1 = in.buf[5];
+  oem2 = in.buf[6];
+  oem3 = in.buf[7];
+  oem_aux = in.buf[8];
+
+  insist(completion_code == 0, "GetChannelAuthenticationRequest failed");
+  insist(hasMD5(), "MD5 is not supported by the remote IPMI "
+                   "device, but is required by this "
+                   "implementation.");
+  mbuf_remove(&in, 9);
+}
+
+}; // namespace GetChannelAuthenticationCapabilities
+
+void getChannelAuthenticationCapabilities(struct mbuf &buf) {
+  RMCP rmcp = {};
+  IPMB ipmb = {0x06, 0x01, 0x38};
+  GetChannelAuthenticationCapabilities::Request request = {};
+  Session session = {0x00, 0x00000000, 0x00000000, request.length()};
+
+  rmcp.write(buf);
+  session.write(buf);
+  ipmb.write(buf);
+  request.write(buf);
+
+  // compute trailing checksum
+  uint8_t checksum = 0;
+  for (size_t i = 17; i < buf.len; i++) {
+    checksum += buf.buf[i];
   }
-
-  request->checksum +=
-      (request->sequence & 0xff) + ((request->sequence >> 8) & 0xff) +
-      ((request->sequence >> 16) & 0xff) + ((request->sequence >> 24) & 0xff);
-
-  MD5_CTX c;
-  MD5_Init(&c);
-  MD5_Update(&c, password, 16);
-  auto session_id_nb = htonl(session_id); /* network byte order */
-  printf("Session id: ");
-  mg_hexdumpf(stdout, &session_id, 4);
-  MD5_Update(&c, &session_id, sizeof(session_id));
-  printf("message: ");
-  mg_hexdumpf(stdout, &r.message, 6);
-  MD5_Update(&c, &r.message, 6 /* first 6 bytes of the header */);
-
-  printf("request: ");
-  mg_hexdumpf(stdout, request, sizeof(*request));
-  MD5_Update(&c, request, sizeof(*request));
-  MD5_Update(&c, &request->sequence, 4);
-  MD5_Update(&c, password, 16);
-  MD5_Final(r.session.auth_code, &c);
-
-  printf("auth_code: ");
-  mg_hexdumpf(stdout, r.session.auth_code, 16);
-
-  request->checksum = -request->checksum;
-  /* End checksum compute */
-
-  return r;
+  checksum = -checksum;
+  mbuf_append(&buf, &checksum, 1);
 }
+
+void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf) {
+  RMCP rmcp;
+  IPMB ipmb;
+  Session session;
+  GetChannelAuthenticationCapabilities::Response response;
+
+  rmcp.read(buf);
+  session.read(buf);
+  ipmb.read(buf);
+  printf("Command: %02x\n", ipmb.command);
+  response.read(buf);
+}
+
+} // namespace IPMI

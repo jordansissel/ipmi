@@ -9,7 +9,13 @@ build: ipmi
 clean:
 	rm -f *.o ipmi
 
-ipmi: mongoose.o ipmi.o main.o ipmi_mongoose.o client.o
+ipmi: mongoose.o main.cpp ipmi.o # ipmi.o main.o ipmi_mongoose.o client.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+run-test: ipmi
+	./ipmi
+
+test: mongoose.o test.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 mongoose.o: mongoose.c
