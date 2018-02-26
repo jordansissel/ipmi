@@ -49,7 +49,43 @@ int main() {
   printf("Received: \n");
   mg_hexdumpf(stdout, buf.buf, buf.len);
 
-  IPMI::decodeChannelAuthenticationCapabilitiesResponse(buf);
+  IPMI::RMCP rmcp;
+  IPMI::IPMB ipmb;
+  IPMI::Session session;
+  IPMI::GetChannelAuthenticationCapabilities::Response response;
 
+  IPMI::decode(buf, rmcp, ipmb, session, response);
+
+  if (response.completion_code != 0) {
+    printf("ChannelAuthenticationCapabilities request failed.\n");
+    return 1;
+  }
+
+  if (!response.hasMD5()) {
+    printf("Remote claims no support for MD5 authcode. Cannot continue.\n");
+    return 1;
+  }
+
+  IPMI::getSessionChallenge(buf);
+
+  printf("Sending: \n");
+  mg_hexdumpf(stdout, buf.buf, buf.len);
+  sendto(fd, buf.buf, buf.len, 0, (const sockaddr *)&addr, sizeof(addr));
+  mbuf_remove(&buf, buf.len);
+
+  b = recvfrom(fd, recv, 1500, 0, NULL, NULL);
+  mbuf_append(&buf, recv, b);
+
+  printf("Received: \n");
+  mg_hexdumpf(stdout, buf.buf, buf.len);
+
+  IPMI::GetSessionChallenge::Response challengeResponse;
+  IPMI::decode(buf, rmcp, ipmb, session, challengeResponse);
+
+  // All future commands need an auth_code of:
+  // md5(password + session id + data + sequence + password)
+  // XXX: Add password.
+  IPMI::activateSession(buf, challengeResponse.session_id,
+                        challengeResponse.challenge);
   return 0;
 }

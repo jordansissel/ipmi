@@ -19,6 +19,7 @@ enum class ChassisControlCommand {
   PulseDiagnosticInterrupt = 5,
   SoftShutdown = 5
 };
+
 class Serializable {
 public:
   virtual void write(struct mbuf &out) = 0;
@@ -93,15 +94,17 @@ public:
 };
 
 class Response : public Command {
-  uint8_t completion_code;
   uint8_t channel;
   uint8_t auth_type1;
   uint8_t auth_type2;
   uint8_t reserved;
-  uint8_t oem1, oem2, oem3;
+  uint8_t oem1;
+  uint8_t oem2;
+  uint8_t oem3;
   uint8_t oem_aux;
 
 public:
+  uint8_t completion_code;
   Response() {}
 
   bool hasMD5() { return auth_type1 & (1 << 2); }
@@ -112,6 +115,71 @@ public:
 };
 } // namespace GetChannelAuthenticationCapabilities
 
+namespace GetSessionChallenge {
+class Request : public Command {
+  uint8_t auth_type;
+  uint8_t user[16];
+
+public:
+  Request() : auth_type(0x02 /* MD5 */), user("root\0\0\0\0\0\0\0\0\0\0\0") {}
+
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length() { return 24 /* 6 (ipmb) + 17 (payload) + 1 (checksum) */; }
+};
+
+class Response : public Command {
+public:
+  uint32_t session_id;
+  uint8_t challenge[16];
+  Response() {}
+
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length() { return 20; }
+};
+} // namespace GetSessionChallenge
+
+namespace ActivateSession {
+class Request : public Command {
+  uint8_t auth_type;
+  uint8_t privilege;
+  uint8_t challenge[16];
+  uint32_t sequence;
+
+public:
+  Request() : auth_type(0x02 /* MD5 */), privilege(0x04 /* Administrator */) {}
+  Request(uint32_t sequence, uint8_t challenge[16])
+      : auth_type(0x02 /* MD5 */), privilege(0x04 /* Administrator */),
+        sequence(sequence) {
+    memcpy(this->challenge, challenge, 16);
+  }
+
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length() { return 22; }
+};
+class Response : public Command {
+  uint8_t aut_type;
+  uint32_t session;
+  uint32_t sequence;
+  uint8_t privilege;
+
+public:
+  void write(struct mbuf &out);
+  void read(struct mbuf &in);
+  uint8_t length() { return 10; }
+};
+
+} // namespace ActivateSession
+
 void getChannelAuthenticationCapabilities(struct mbuf &buf);
-void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf);
+void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+            GetChannelAuthenticationCapabilities::Response &response);
+void getSessionChallenge(struct mbuf &buf);
+void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+            GetSessionChallenge::Response &response);
+
+void activateSession(struct mbuf &buf, uint32_t session_id,
+                     uint8_t challenge[16]);
 } // namespace IPMI

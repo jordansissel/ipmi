@@ -20,7 +20,7 @@ test: mongoose.o test.o
 
 mongoose.o: mongoose.c
 
-ipmi.o: ipmi.cpp ipmi.h ipmi_packet.h
+ipmi.o: ipmi.cpp ipmi.h
 ipmi.cpp: mongoose.h insist.h ipmi.h
 
 mongoose.c: mongoose.h

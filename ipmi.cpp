@@ -41,9 +41,9 @@ void Session::read(struct mbuf &in) {
          in.len);
   auth_type = in.buf[0];
   memcpy(&sequence, in.buf + 1, 4);
-  sequence = htonl(sequence);
+  sequence = ntohl(sequence);
   memcpy(&id, in.buf + 5, 4);
-  id = htonl(id);
+  id = ntohl(id);
 
   length = in.buf[9];
   mbuf_remove(&in, 10);
@@ -127,6 +127,45 @@ void Response::read(struct mbuf &in) {
 
 }; // namespace GetChannelAuthenticationCapabilities
 
+namespace GetSessionChallenge {
+void Request::write(struct mbuf &out) {
+  mbuf_append(&out, &auth_type, 1);
+  mbuf_append(&out, &user, 16);
+}
+
+void Request::read(struct mbuf &in) {
+  insist(in.len >= 17,
+         "Need at least 17 bytes for SessionChallenge request, but have %zd "
+         "bytes.",
+         in.len);
+
+  auth_type = in.buf[0];
+  memcpy(user, in.buf + 1, 16);
+  mbuf_remove(&in, 17);
+}
+
+void Response::write(struct mbuf &out) {
+  uint32_t scratch;
+
+  scratch = htonl(session_id);
+  mbuf_append(&out, &scratch, 4);
+  mbuf_append(&out, challenge, 16);
+}
+
+void Response::read(struct mbuf &in) {
+  insist(in.len >= 20,
+         "Need at least 20 bytes for SessionChallenge response, but have %zd "
+         "bytes.",
+         in.len);
+
+  memcpy(&session_id, in.buf, 4);
+  session_id = ntohl(session_id);
+
+  memcpy(&challenge, in.buf + 4, 16);
+  mbuf_remove(&in, 20);
+}
+} // namespace GetSessionChallenge
+
 void getChannelAuthenticationCapabilities(struct mbuf &buf) {
   RMCP rmcp = {};
   IPMB ipmb = {0x06, 0x01, 0x38};
@@ -147,11 +186,8 @@ void getChannelAuthenticationCapabilities(struct mbuf &buf) {
   mbuf_append(&buf, &checksum, 1);
 }
 
-void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf) {
-  RMCP rmcp;
-  IPMB ipmb;
-  Session session;
-  GetChannelAuthenticationCapabilities::Response response;
+void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+            GetChannelAuthenticationCapabilities::Response &response) {
 
   // Sum of all bytes 17..end should equal 0 (checksum is negative of sum)
   uint8_t value = 0;
@@ -162,9 +198,71 @@ void decodeChannelAuthenticationCapabilitiesResponse(struct mbuf &buf) {
 
   rmcp.read(buf);
   session.read(buf);
+
   ipmb.read(buf);
   printf("Command: %02x\n", ipmb.command);
   response.read(buf);
+
+  mbuf_remove(&buf, 1); // remove last byte (the checksum)
 }
 
+void getSessionChallenge(struct mbuf &buf) {
+  RMCP rmcp = {};
+  IPMB ipmb = {0x06, 0x01, 0x39 /* SessionChallenge */};
+  GetSessionChallenge::Request request = {};
+  Session session = {0x00, 0x00000000, 0x00000000, request.length()};
+
+  rmcp.write(buf);
+  session.write(buf);
+  ipmb.write(buf);
+  request.write(buf);
+
+  // compute trailing checksum
+  uint8_t checksum = 0;
+  for (size_t i = 17; i < buf.len; i++) {
+    checksum += buf.buf[i];
+  }
+  checksum = -checksum;
+  mbuf_append(&buf, &checksum, 1);
+}
+
+void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+            GetSessionChallenge::Response &response) {
+  // Sum of all bytes 17..end should equal 0 (checksum is negative of sum)
+  uint8_t value = 0;
+  for (size_t i = 17; i < buf.len; i++) {
+    value += (uint8_t)buf.buf[i];
+  }
+  insist(value == 0, "Checksum failed on receiving packet");
+
+  rmcp.read(buf);
+  session.read(buf);
+
+  ipmb.read(buf);
+  printf("Command: %02x\n", ipmb.command);
+  response.read(buf);
+
+  mbuf_remove(&buf, 1); // remove last byte (the checksum)
+}
+
+void activateSession(struct mbuf &buf, uint32_t session_id,
+                     uint8_t challenge[16]) {
+  RMCP rmcp = {};
+  IPMB ipmb = {0x06, 0x01, 0x3A /* Activate Session */};
+  GetSessionChallenge::Request request = {};
+  Session session = {0x00, 0x00000000, 0x00000000, request.length()};
+
+  rmcp.write(buf);
+  session.write(buf);
+  ipmb.write(buf);
+  request.write(buf);
+
+  // compute trailing checksum
+  uint8_t checksum = 0;
+  for (size_t i = 17; i < buf.len; i++) {
+    checksum += buf.buf[i];
+  }
+  checksum = -checksum;
+  mbuf_append(&buf, &checksum, 1);
+}
 } // namespace IPMI
