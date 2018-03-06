@@ -42,15 +42,24 @@ int main() {
   // }
   // mg_mgr_free(&mgr);
 
+  printf("1\n");
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_port = htons(623); /* 623 == ipmi */
 
-  auto host = gethostbyname("pork-ipmi");
-  memcpy(&addr.sin_addr, host->h_addr_list[0], host->h_length);
+  printf("2\n");
+  struct addrinfo *host;
+  int rc = getaddrinfo("pork-ipmi", NULL, NULL, &host);
+  printf("getaddrinfo() %s\n", gai_strerror(rc));
+  if (rc != 0) {
+    return 1;
+  }
+  printf("3\n");
+  memcpy(&addr.sin_addr, host->ai_addr, sizeof(addr.sin_addr));
 
+  printf("4\n");
   struct mbuf buf;
   mbuf_init(&buf, 20);
   IPMI::getChannelAuthenticationCapabilities(buf);
