@@ -42,15 +42,8 @@ void RMCP::read(struct mbuf &in) {
 void Session::write(struct mbuf &out) const {
   uint32_t networkbytes;
   mbuf_append(&out, &auth_type, 1);
-
-  // networkbytes = htonl(sequence);
-  networkbytes = sequence;
-  printf("Writing(%08x) -> %08x\n", sequence, networkbytes);
-  mbuf_append(&out, &networkbytes, 4);
-
-  // networkbytes = htonl(id);
-  networkbytes = id;
-  mbuf_append(&out, &networkbytes, 4);
+  mbuf_append(&out, &sequence, 4);
+  mbuf_append(&out, &id, 4);
 
   if (auth_type == 0x02) { /* md5 */
     mbuf_append(&out, auth_code, 16);
@@ -66,9 +59,7 @@ void Session::read(struct mbuf &in) {
   auth_type = in.buf[0];
 
   memcpy(&sequence, in.buf + 1, 4);
-  // sequence = ntohl(sequence);
   memcpy(&id, in.buf + 5, 4);
-  // id = ntohl(id);
 
   if (auth_type > 0) {
     insist(in.len >= 26,
@@ -184,11 +175,7 @@ void Request::read(struct mbuf &in) {
 }
 
 void Response::write(struct mbuf &out) const {
-  uint32_t scratch;
-
-  // scratch = htonl(session_id);
-  scratch = session_id;
-  mbuf_append(&out, &scratch, 4);
+  mbuf_append(&out, &session_id, 4);
   mbuf_append(&out, challenge, 16);
 }
 
@@ -202,7 +189,6 @@ void Response::read(struct mbuf &in) {
   insist(completion_code == 0, "GetChannelAuthenticationRequest failed");
 
   memcpy(&session_id, in.buf + 1, 4);
-  // session_id = ntohl(session_id);
 
   memcpy(&challenge, in.buf + 5, 16);
   printf("Challenge: ");
@@ -216,12 +202,10 @@ namespace ActivateSession {
 void Request::read(struct mbuf &in) {}
 
 void Request::write(struct mbuf &out) const {
-  // uint32_t scratch = htonl(sequence);
-  uint32_t scratch = sequence;
   mbuf_append(&out, &auth_type, 1);
   mbuf_append(&out, &privilege, 1);
   mbuf_append(&out, &challenge, 16);
-  mbuf_append(&out, &scratch, 4);
+  mbuf_append(&out, &sequence, 4);
 }
 
 void Response::read(struct mbuf &in) {
@@ -231,10 +215,8 @@ void Response::read(struct mbuf &in) {
   auth_type = in.buf[1];
 
   memcpy(&session, in.buf + 2, 4);
-  // session = ntohl(session);
 
   memcpy(&sequence, in.buf + 6, 4);
-  // sequence = ntohl(sequence);
   mg_hexdumpf(stdout, in.buf + 6, 4);
 
   privilege = in.buf[10];
@@ -390,16 +372,14 @@ void activateSession(struct mbuf &buf, uint8_t password[16], uint32_t sequence,
   cs_md5_update(&md5, password, 16);
   // printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
 
-  // uint32_t scratch = htonl(session_id);
-  uint32_t scratch = session_id;
-  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
+  cs_md5_update(&md5, (const unsigned char *)&session_id, 4);
   // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
 
   // printf("md5'ing data: "),
   // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
   cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
                 buf.len - offset);
-  scratch = 0; // Sequence number is 0 until after this message
+  uint32_t scratch = 0; // Sequence number is 0 until after this message
   cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
   // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
 
@@ -466,19 +446,13 @@ void setSessionPrivilege(struct mbuf &buf, uint32_t session_id,
   cs_md5_update(&md5, password, 16);
   printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
 
-  // uint32_t scratch = htonl(session_id);
-  uint32_t scratch = session_id;
-  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
-  // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
+  cs_md5_update(&md5, (const unsigned char *)&session_id, 4);
 
   // printf("md5'ing data: "),
   // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
   cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
                 buf.len - offset);
-  // scratch = htonl(sequence);
-  scratch = sequence;
-  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
-  // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
+  cs_md5_update(&md5, (const unsigned char *)&sequence, 4);
 
   cs_md5_update(&md5, password, 16);
   // printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
@@ -543,19 +517,13 @@ void chassisControl(struct mbuf &buf, uint32_t session_id, uint32_t sequence,
   cs_md5_update(&md5, password, 16);
   printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
 
-  // uint32_t scratch = htonl(session_id);
-  uint32_t scratch = session_id;
-  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
-  // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
+  cs_md5_update(&md5, (const unsigned char *)&session_id, 4);
 
   // printf("md5'ing data: "),
   // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
   cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
                 buf.len - offset);
-  // scratch = htonl(sequence);
-  scratch = sequence;
-  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
-  // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
+  cs_md5_update(&md5, (const unsigned char *)&sequence, 4);
 
   cs_md5_update(&md5, password, 16);
   // printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
