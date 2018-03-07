@@ -181,11 +181,11 @@ public:
 };
 class Response : public Command {
   uint8_t auth_type;
-  uint32_t sequence;
   uint8_t privilege;
 
 public:
   uint32_t session;
+  uint32_t sequence;
   void write(struct mbuf &out) const;
   void read(struct mbuf &in);
   uint8_t length() const { return 10; }
@@ -217,6 +217,26 @@ public:
 };
 } // namespace SetSessionPrivilege
 
+namespace ChassisControl {
+class Request : Command {
+  uint8_t command;
+
+public:
+  Request() {}
+  Request(ChassisControlCommand command) : command((uint8_t)command) {}
+  void write(struct mbuf &out) const;
+  void read(struct mbuf &in);
+  uint8_t length() const { return 8; }
+};
+class Response : Command {
+public:
+  Response() {}
+  void write(struct mbuf &out) const;
+  void read(struct mbuf &in);
+  uint8_t length() const { return 7; }
+};
+} // namespace ChassisControl
+
 void getChannelAuthenticationCapabilities(struct mbuf &buf);
 void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
             GetChannelAuthenticationCapabilities::Response &response);
@@ -224,7 +244,7 @@ void getSessionChallenge(struct mbuf &buf);
 void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
             GetSessionChallenge::Response &response);
 
-void activateSession(struct mbuf &buf, uint8_t password[16],
+void activateSession(struct mbuf &buf, uint8_t password[16], uint32_t sequence,
                      uint32_t session_id, uint8_t challenge[16]);
 void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
             IPMB &ipmb, Session &session, ActivateSession::Response &response);
@@ -232,5 +252,11 @@ void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
 void setSessionPrivilege(struct mbuf &buf, uint32_t session, uint32_t sequence,
                          uint8_t password[16],
                          IPMI::AuthenticationCapability privilege);
+void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
+            IPMB &ipmb, Session &session,
+            SetSessionPrivilege::Response &response);
+
+void chassisControl(struct mbuf &buf, uint32_t session, uint32_t sequence,
+                    uint8_t password[16], ChassisControlCommand command);
 
 } // namespace IPMI

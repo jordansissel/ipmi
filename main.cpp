@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
   // md5(password + session id + data + sequence + password)
   // XXX: Add password.
   uint32_t sequence = (uint32_t)random();
-  IPMI::activateSession(buf, password, challengeResponse.session_id,
+  IPMI::activateSession(buf, password, sequence, challengeResponse.session_id,
                         challengeResponse.challenge);
   printf("! Sending: \n");
   mg_hexdumpf(stdout, buf.buf, buf.len);
@@ -135,10 +135,12 @@ int main(int argc, char **argv) {
   IPMI::decode(buf, password, rmcp, ipmb, session, activateResponse);
 
   uint32_t session_id = activateResponse.session;
+  sequence = activateResponse.sequence;
 
   // Send SetSessionPrivilege
-  IPMI::setSessionPrivilege(buf, session_id, ++sequence, password,
+  IPMI::setSessionPrivilege(buf, session_id, sequence, password,
                             IPMI::AuthenticationCapability::Administrator);
+  sequence++;
   printf("!! Sending: \n");
   mg_hexdumpf(stdout, buf.buf, buf.len);
   sendto(fd, buf.buf, buf.len, 0, addresses->ai_addr, addresses->ai_addrlen);
@@ -150,5 +152,23 @@ int main(int argc, char **argv) {
 
   printf("Received: \n");
   mg_hexdumpf(stdout, buf.buf, buf.len);
+  IPMI::SetSessionPrivilege::Response privilegeResponse;
+  IPMI::decode(buf, password, rmcp, ipmb, session, privilegeResponse);
+
+  // Send Chassis Control
+  IPMI::chassisControl(buf, challengeResponse.session_id, sequence, password,
+                       IPMI::ChassisControlCommand::PowerUp);
+  sequence++;
+  printf("!! Sending: \n");
+  mg_hexdumpf(stdout, buf.buf, buf.len);
+  sendto(fd, buf.buf, buf.len, 0, addresses->ai_addr, addresses->ai_addrlen);
+
+  // Receive Chassis Control response
+  b = recvfrom(fd, recv, 1500, 0, NULL, NULL);
+  mbuf_append(&buf, recv, b);
+
+  printf("Received: \n");
+  mg_hexdumpf(stdout, buf.buf, buf.len);
+
   return 0;
 }

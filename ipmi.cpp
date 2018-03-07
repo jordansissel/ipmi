@@ -43,10 +43,13 @@ void Session::write(struct mbuf &out) const {
   uint32_t networkbytes;
   mbuf_append(&out, &auth_type, 1);
 
-  networkbytes = htonl(sequence);
+  // networkbytes = htonl(sequence);
+  networkbytes = sequence;
+  printf("Writing(%08x) -> %08x\n", sequence, networkbytes);
   mbuf_append(&out, &networkbytes, 4);
 
-  networkbytes = htonl(id);
+  // networkbytes = htonl(id);
+  networkbytes = id;
   mbuf_append(&out, &networkbytes, 4);
 
   if (auth_type == 0x02) { /* md5 */
@@ -63,9 +66,9 @@ void Session::read(struct mbuf &in) {
   auth_type = in.buf[0];
 
   memcpy(&sequence, in.buf + 1, 4);
-  sequence = ntohl(sequence);
+  // sequence = ntohl(sequence);
   memcpy(&id, in.buf + 5, 4);
-  id = ntohl(id);
+  // id = ntohl(id);
 
   if (auth_type > 0) {
     insist(in.len >= 26,
@@ -183,7 +186,8 @@ void Request::read(struct mbuf &in) {
 void Response::write(struct mbuf &out) const {
   uint32_t scratch;
 
-  scratch = htonl(session_id);
+  // scratch = htonl(session_id);
+  scratch = session_id;
   mbuf_append(&out, &scratch, 4);
   mbuf_append(&out, challenge, 16);
 }
@@ -198,7 +202,7 @@ void Response::read(struct mbuf &in) {
   insist(completion_code == 0, "GetChannelAuthenticationRequest failed");
 
   memcpy(&session_id, in.buf + 1, 4);
-  session_id = ntohl(session_id);
+  // session_id = ntohl(session_id);
 
   memcpy(&challenge, in.buf + 5, 16);
   printf("Challenge: ");
@@ -212,7 +216,8 @@ namespace ActivateSession {
 void Request::read(struct mbuf &in) {}
 
 void Request::write(struct mbuf &out) const {
-  uint32_t scratch = htonl(sequence);
+  // uint32_t scratch = htonl(sequence);
+  uint32_t scratch = sequence;
   mbuf_append(&out, &auth_type, 1);
   mbuf_append(&out, &privilege, 1);
   mbuf_append(&out, &challenge, 16);
@@ -226,10 +231,11 @@ void Response::read(struct mbuf &in) {
   auth_type = in.buf[1];
 
   memcpy(&session, in.buf + 2, 4);
-  session = ntohl(session);
+  // session = ntohl(session);
 
   memcpy(&sequence, in.buf + 6, 4);
-  sequence = ntohl(sequence);
+  // sequence = ntohl(sequence);
+  mg_hexdumpf(stdout, in.buf + 6, 4);
 
   privilege = in.buf[10];
   mbuf_remove(&in, 11);
@@ -250,13 +256,27 @@ void Response::read(struct mbuf &in) {
       "Need at least 2 bytes for SetSessionPrivilege response, but have %zd.",
       in.len);
   uint8_t completion_code = in.buf[0];
-  insist(completion_code == 0, "ActivateSession request failed");
+  insist(completion_code == 0, "SetSessionPrivilege request failed");
 
   privilege = in.buf[1];
   mbuf_remove(&in, 2);
 }
 void Response::write(struct mbuf &out) const {}
 } // namespace SetSessionPrivilege
+
+namespace ChassisControl {
+void Request::read(struct mbuf &in) {}
+void Request::write(struct mbuf &out) const { mbuf_append(&out, &command, 1); }
+void Response::read(struct mbuf &in) {
+  insist(in.len >= 1,
+         "Need at least 1 bytes for ChassisControl response, but have %zd.",
+         in.len);
+  uint8_t completion_code = in.buf[0];
+  insist(completion_code == 0, "ChassisControl request failed");
+  mbuf_remove(&in, 1);
+}
+void Response::write(struct mbuf &out) const {}
+} // namespace ChassisControl
 
 void getChannelAuthenticationCapabilities(struct mbuf &buf) {
   RMCP rmcp = {};
@@ -337,11 +357,10 @@ void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
   mbuf_remove(&buf, 1); // remove last byte (the checksum)
 }
 
-void activateSession(struct mbuf &buf, uint8_t password[16],
+void activateSession(struct mbuf &buf, uint8_t password[16], uint32_t sequence,
                      uint32_t session_id, uint8_t challenge[16]) {
   RMCP rmcp = {};
   IPMB ipmb = {0x06, 0x01, 0x3A /* Activate Session */};
-  uint32_t sequence = 0x29; // XXX: randomize initial sequence number
   const ActivateSession::Request request(sequence, challenge);
   Session session = {0x02, 0x00000000, session_id, request.length()};
 
@@ -371,7 +390,8 @@ void activateSession(struct mbuf &buf, uint8_t password[16],
   cs_md5_update(&md5, password, 16);
   // printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
 
-  uint32_t scratch = htonl(session_id);
+  // uint32_t scratch = htonl(session_id);
+  uint32_t scratch = session_id;
   cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
   // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
 
@@ -379,7 +399,7 @@ void activateSession(struct mbuf &buf, uint8_t password[16],
   // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
   cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
                 buf.len - offset);
-  scratch = htonl(0); // Sequence number is 0 until after this message
+  scratch = 0; // Sequence number is 0 until after this message
   cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
   // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
 
@@ -446,7 +466,8 @@ void setSessionPrivilege(struct mbuf &buf, uint32_t session_id,
   cs_md5_update(&md5, password, 16);
   printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
 
-  uint32_t scratch = htonl(session_id);
+  // uint32_t scratch = htonl(session_id);
+  uint32_t scratch = session_id;
   cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
   // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
 
@@ -454,7 +475,8 @@ void setSessionPrivilege(struct mbuf &buf, uint32_t session_id,
   // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
   cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
                 buf.len - offset);
-  scratch = htonl(sequence); // Sequence number is 0 until after this message
+  // scratch = htonl(sequence);
+  scratch = sequence;
   cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
   // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
 
@@ -468,4 +490,80 @@ void setSessionPrivilege(struct mbuf &buf, uint32_t session_id,
   memcpy(buf.buf + offset - (16 + 1), authcode, 16);
 }
 
+void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
+            IPMB &ipmb, Session &session,
+            SetSessionPrivilege::Response &response) {
+  rmcp.read(buf);
+  session.read(buf);
+
+  // Verify checksum
+  uint8_t value = 0;
+  for (size_t i = 0; i < buf.len; i++) {
+    value += (uint8_t)buf.buf[i];
+  }
+  insist(value == 0, "Checksum failed on receiving packet");
+
+  ipmb.read(buf);
+  printf("Command: %02x\n", ipmb.command);
+  response.read(buf);
+
+  mbuf_remove(&buf, 1); // remove last byte (the checksum)
+  insist(
+      buf.len == 0,
+      "Buffer length should be empty if decoding is correct, but has %zd bytes",
+      buf.len);
+}
+
+void chassisControl(struct mbuf &buf, uint32_t session_id, uint32_t sequence,
+                    uint8_t password[16], ChassisControlCommand command) {
+  RMCP rmcp = {};
+  IPMB ipmb = {0x00 /* Chassis Request */, 0x01, 0x02 /* Chassis Control */};
+  const ChassisControl::Request request(command);
+  Session session = {0x02, sequence, session_id, request.length()};
+
+  rmcp.write(buf);
+  session.write(buf);
+  size_t offset = buf.len;
+  ipmb.write(buf);
+  request.write(buf);
+
+  // compute trailing checksum
+  uint8_t checksum = 0;
+  for (size_t i = 17 + 16; i < buf.len; i++) {
+    checksum += buf.buf[i];
+  }
+  checksum = -checksum;
+  mbuf_append(&buf, &checksum, 1);
+
+  // Compute auth code: MD5(password + sequence + data + password)
+  printf("Session: %08x\n", session_id);
+  printf("Sequence: %08x\n", sequence);
+  cs_md5_ctx md5;
+  cs_md5_init(&md5);
+  cs_md5_update(&md5, password, 16);
+  printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
+
+  // uint32_t scratch = htonl(session_id);
+  uint32_t scratch = session_id;
+  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
+  // printf("md5'ing session: "), mg_hexdumpf(stdout, &scratch, 4);
+
+  // printf("md5'ing data: "),
+  // mg_hexdumpf(stdout, buf.buf + offset, buf.len - offset);
+  cs_md5_update(&md5, (const unsigned char *)(buf.buf + offset),
+                buf.len - offset);
+  // scratch = htonl(sequence);
+  scratch = sequence;
+  cs_md5_update(&md5, (const unsigned char *)&scratch, 4);
+  // printf("md5'ing sequence: "), mg_hexdumpf(stdout, &scratch, 4);
+
+  cs_md5_update(&md5, password, 16);
+  // printf("md5'ing password: "), mg_hexdumpf(stdout, password, 16);
+
+  uint8_t authcode[16];
+  cs_md5_final(authcode, &md5);
+  // printf("Auth code: ");
+  mg_hexdumpf(stdout, authcode, 16);
+  memcpy(buf.buf + offset - (16 + 1), authcode, 16);
+}
 } // namespace IPMI
