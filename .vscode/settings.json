@@ -1,6 +1,7 @@
 {
     "files.associations": {
-        "string": "cpp"
+        "string": "cpp",
+        "istream": "cpp"
     },
     "editor.formatOnType": true,
     "editor.formatOnSave": true,
