@@ -17,6 +17,7 @@
   */
 #pragma once
 #include "ipmi.h"
+#include <list>
 
 namespace IPMI {
 enum class ClientState {
@@ -32,18 +33,25 @@ class Client {
 private:
   ClientState state = ClientState::Initial;
   std::list<ChassisControlCommand> requestQueue{};
+  struct mbuf buffer;
 
-  uint16_t authSupport;
+  uint8_t password[16];
+  uint32_t session_id;
+  uint32_t sequence;
+
   mg_connection *connection;
 
   void send(ChassisControlCommand);
-  void receive(struct mbuf);
-  void handle(const GetChannelAuthenticationCapabilities &);
-  void handle(const GetSessionChallenge &);
+  void receiveChannelAuthenticationCapabilities(struct mbuf payload);
+  void receiveChallenge(struct mbuf payload);
   void begin();
 
 public:
-  Client() : state{ClientState::Initial} { printf("Init: %d\n", (int)state); }
+  Client(uint8_t password[16]) : state{ClientState::Initial} {
+    printf("Init: %d\n", (int)state);
+    memcpy(this->password, password, 16);
+    mbuf_init(&buffer, 30);
+  }
   void chassisControl(ChassisControlCommand command);
   void receivePacket(struct mbuf buf);
 
