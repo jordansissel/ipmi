@@ -78,12 +78,10 @@ void Client::receivePacket(struct mbuf payload) {
     receiveChannelAuthenticationCapabilities(payload);
     break;
   case ClientState::NeedSessionChallenge:
-    // If all is good, set state NeedActivateSssion and send a
-    // ActivateSssion request
+    receiveSessionChallenge(payload);
     break;
   case ClientState::NeedActivateSession:
-    // If all is good, set state NeedActivateSssion and send a
-    // SetSessionPrivilegeLevel request
+    receiveActivateSession(payload);
     break;
   case ClientState::NeedSetSessionPrivilegeLevel:
     // If all is good, set state SessionReady
@@ -125,7 +123,7 @@ void Client::receiveChannelAuthenticationCapabilities(struct mbuf payload) {
   mbuf_remove(&buffer, buffer.len);
 }
 
-void Client::receiveChallenge(struct mbuf payload) {
+void Client::receiveSessionChallenge(struct mbuf payload) {
   IPMI::RMCP rmcp;
   IPMI::IPMB ipmb;
   IPMI::Session session;
@@ -143,6 +141,24 @@ void Client::receiveChallenge(struct mbuf payload) {
                         response.challenge);
   mg_send(connection, buffer.buf, buffer.len);
   mbuf_remove(&buffer, buffer.len);
+}
+
+void Client::receiveActivateSession(struct mbuf payload) {
+  IPMI::RMCP rmcp;
+  IPMI::IPMB ipmb;
+  IPMI::Session session;
+  IPMI::ActivateSession::Response response;
+
+  IPMI::decode(payload, password, rmcp, ipmb, session, response);
+
+  session_id = response.session;
+  sequence_out = response.sequence;
+
+  state = ClientState::NeedSetSessionPrivilegeLevel;
+
+  IPMI::setSessionPrivilege(buffer, session_id, sequence_out, password,
+                            IPMI::AuthenticationCapability::Administrator);
+  sequence_out++;
 }
 
 void Client::setConnection(mg_connection *c) {

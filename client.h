@@ -38,12 +38,14 @@ private:
   uint8_t password[16];
   uint32_t session_id;
   uint32_t sequence;
+  uint32_t sequence_out;
 
   mg_connection *connection;
 
   void send(ChassisControlCommand);
   void receiveChannelAuthenticationCapabilities(struct mbuf payload);
-  void receiveChallenge(struct mbuf payload);
+  void receiveSessionChallenge(struct mbuf payload);
+  void receiveActivateSession(struct mbuf payload);
   void begin();
 
 public:
