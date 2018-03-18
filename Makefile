@@ -20,7 +20,7 @@ $(out) $(vendor):
 
 $(out)/ipmi: $(out)/client.o $(out)/mongoose.o $(out)/ipmi.o | $(out)
 $(out)/ipmi: main.cpp
-	@echo "$@ :: Linking $^"
+	@printf "%-20s %s\n" "$@" "(link) $^"
 	$(QUIET)$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 .PHONY: run-test
@@ -33,15 +33,15 @@ $(out)/test: $(out) $(out)/mongoose.o $(out)/test.o | $(out)
 client.cpp: $(vendor)/mongoose.h
 
 $(out)/mongoose.o: $(vendor)/mongoose.c  | $(out)
-	@echo "$@ :: (c) Compiling $<"
+	@printf "%-20s %s\n" "$@" "(c) $<"
 	$(QUIET)$(CC) -o $@ -c $<  $(CFLAGS)
 
 $(out)/%.o: %.c | $(out)
-	@echo "$@ :: (c) Compiling $<"
+	@printf "%-20s %s\n" "$@" "(c) $<"
 	$(QUIET)$(CC) -o $@ -c $<  $(CFLAGS)
 
 $(out)/%.o: %.cpp | $(out)
-	@echo "$@ :: (c++) Compiling $<"
+	@printf "%-20s %s\n" "$@" "(c++) $<"
 	$(QUIET)$(CXX) -o $@ -c $<  $(CXXFLAGS)
 
 $(out)/ipmi.o: ipmi.cpp ipmi.h
@@ -49,13 +49,13 @@ $(out)/ipmi.o: ipmi.cpp ipmi.h
 ipmi.cpp: $(vendor)/mongoose.h $(vendor)/insist.h ipmi.h
 
 $(vendor)/mongoose.c: $(vendor)/mongoose.h | $(vendor)
-	@echo "$@ :: Downloading"
+	@printf "%-20s %s\n" "$@" "Downloading"
 	$(QUIET)curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.c > $@
 
 $(vendor)/mongoose.h: | $(vendor)
-	@echo "$@ :: Downloading"
+	@printf "%-20s %s\n" "$@" "Downloading"
 	$(QUIET)curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.h > $@
 
 $(vendor)/insist.h: | $(vendor)
-	@echo "$@ :: Downloading"
+	@printf "%-20s %s\n" "$@" "Downloading"
 	$(QUIET)curl -s https://raw.githubusercontent.com/jordansissel/experiments/master/c/better-assert/insist.h > $@
