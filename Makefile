@@ -18,7 +18,7 @@ $(out) $(vendor):
 	$(QUIET)mkdir -p $@
 
 
-$(out)/ipmi: $(out)/client.o $(out)/mongoose.o $(out)/ipmi.o | $(out)
+$(out)/ipmi: $(out)/client.o $(out)/mongoose.o $(out)/ipmi.o $(out)/ipmi_mongoose.o | $(out)
 $(out)/ipmi: main.cpp
 	@printf "%-20s %s\n" "$@" "(link) $^"
 	$(QUIET)$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)

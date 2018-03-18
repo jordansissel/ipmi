@@ -34,6 +34,8 @@ static const char *stateToString(const ClientState s) {
     return "NeedSetSessionPrivilegeLevel";
   case ClientState::SessionReady:
     return "SessionReady";
+  case ClientState::NeedChassisControlResponse:
+    return "NeedChassisControlResponse";
   }
 
   sprintf(unknown_buf, "Unknown state: %d", (int)s);
@@ -84,14 +86,14 @@ void Client::receivePacket(struct mbuf payload) {
     receiveActivateSession(payload);
     break;
   case ClientState::NeedSetSessionPrivilegeLevel:
-    // If all is good, set state SessionReady
-
-    // After: Pop any command waiting in the queue and send it.
+    receiveSetSessionPrivilegeLevel(payload);
     break;
   case ClientState::SessionReady:
     // what now?
     // After: Pop any command waiting in the queue and send it.
     break;
+  case ClientState::NeedChassisControlResponse:
+    receiveChassisControl(payload);
   }
 }
 
@@ -152,13 +154,46 @@ void Client::receiveActivateSession(struct mbuf payload) {
   IPMI::decode(payload, password, rmcp, ipmb, session, response);
 
   session_id = response.session;
+
   sequence_out = response.sequence;
 
   state = ClientState::NeedSetSessionPrivilegeLevel;
 
   IPMI::setSessionPrivilege(buffer, session_id, sequence_out, password,
                             IPMI::AuthenticationCapability::Administrator);
+  mg_hexdumpf(stdout, buffer.buf, buffer.len);
+  mg_send(connection, buffer.buf, buffer.len);
+  mbuf_remove(&buffer, buffer.len);
+
   sequence_out++;
+}
+
+void Client::receiveSetSessionPrivilegeLevel(struct mbuf payload) {
+  IPMI::RMCP rmcp;
+  IPMI::IPMB ipmb;
+  IPMI::Session session;
+  IPMI::SetSessionPrivilege::Response response;
+
+  IPMI::decode(payload, password, rmcp, ipmb, session, response);
+
+  // XXX: Verify the response has the requested privilege level
+
+  state = ClientState::SessionReady;
+
+  // Send Chassis Control?
+  auto command = requestQueue.front();
+  requestQueue.pop_front();
+  IPMI::chassisControl(buffer, session_id, sequence_out, password, command);
+  sequence_out++;
+  mg_send(connection, buffer.buf, buffer.len);
+  mbuf_remove(&buffer, buffer.len);
+
+  state = ClientState::NeedChassisControlResponse;
+}
+
+void Client::receiveChassisControl(struct mbuf payload) {
+  printf("Received ChassisControl response\n");
+  mg_hexdumpf(stdout, payload.buf, payload.len);
 }
 
 void Client::setConnection(mg_connection *c) {

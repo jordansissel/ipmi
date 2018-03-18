@@ -28,7 +28,7 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
     client->setConnection(nc);
     break;
   case MG_EV_RECV:
-    // printf("handler RECV(%d) %zd bytes\n", ev, nc->recv_mbuf.len);
+    printf("handler RECV(%d) %zd bytes\n", ev, nc->recv_mbuf.len);
     client->receivePacket(nc->recv_mbuf);
     // Remove packet from buffer after processing:
     mbuf_remove(&nc->recv_mbuf, nc->recv_mbuf.len);

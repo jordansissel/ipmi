@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
+#pragma once
 #include "mongoose.h"
 #include <stdint.h>
 

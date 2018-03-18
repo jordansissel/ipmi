@@ -26,7 +26,8 @@ enum class ClientState {
   NeedSessionChallenge,
   NeedActivateSession,
   NeedSetSessionPrivilegeLevel,
-  SessionReady
+  SessionReady,
+  NeedChassisControlResponse
 };
 
 class Client {
@@ -46,6 +47,8 @@ private:
   void receiveChannelAuthenticationCapabilities(struct mbuf payload);
   void receiveSessionChallenge(struct mbuf payload);
   void receiveActivateSession(struct mbuf payload);
+  void receiveSetSessionPrivilegeLevel(struct mbuf payload);
+  void receiveChassisControl(struct mbuf payload);
   void begin();
 
 public:

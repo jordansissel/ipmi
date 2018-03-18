@@ -23,9 +23,42 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "client.h"
 #include "ipmi.h"
 
-int main(int argc, char **argv) {
+int mgos(int argc, char **argv) {
+  if (argc != 3) {
+    printf("Usage: %s <host> <password>\n", argv[0]);
+    return 1;
+  }
+
+  const auto hostname = argv[1];
+  uint8_t password[16] = {};
+  strncpy((char *)password, argv[2], 16);
+
+  auto client = IPMI::Client(password);
+
+  struct mg_mgr mgr;
+  mg_mgr_init(&mgr, NULL);
+
+  struct mg_connect_opts opts = {.user_data = &client};
+
+  char *address;
+  asprintf(&address, "udp://%s:623", hostname);
+
+  auto conn =
+      mg_connect_opt(&mgr, address, ipmi_client_connection_handler, opts);
+  client.setConnection(conn);
+
+  client.chassisControl(IPMI::ChassisControlCommand::PowerUp);
+
+  for (;;) { // Start infinite event loop
+    mg_mgr_poll(&mgr, 1000);
+  }
+  mg_mgr_free(&mgr);
+}
+
+int posix(int argc, char **argv) {
   if (argc != 3) {
     printf("Usage: %s <host> <password>\n", argv[0]);
     return 1;
@@ -172,3 +205,4 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+int main(int argc, char **argv) { return mgos(argc, argv); }
