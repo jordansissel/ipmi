@@ -1,4 +1,5 @@
-mongoose.[ch]
-insist.h
+vendor
+build
+deps
 *.o
 ipmi
