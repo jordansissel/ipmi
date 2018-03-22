@@ -16,7 +16,16 @@
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
 #include "client.h"
+
+#if CS_PLATFORM == CS_P_UNIX
 #include <stdlib.h> // for random()
+#else
+#include <limits.h>
+#include <mgos_utils.h>
+
+// Provide random() on platforms like ESP32
+uint32_t random() { return (uint32_t)mgos_rand_range(0, INT_MAX); }
+#endif
 
 namespace IPMI {
 static char unknown_buf[50];

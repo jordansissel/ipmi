@@ -36,26 +36,32 @@ int mgos(int argc, char **argv) {
   uint8_t password[16] = {};
   strncpy((char *)password, argv[2], 16);
 
-  auto client = IPMI::Client(password);
+  auto client = new IPMI::Client(password);
 
   struct mg_mgr mgr;
   mg_mgr_init(&mgr, NULL);
 
-  struct mg_connect_opts opts = {.user_data = &client};
+  struct mg_connect_opts opts = {.user_data = client};
 
   char *address;
   asprintf(&address, "udp://%s:623", hostname);
 
   auto conn =
       mg_connect_opt(&mgr, address, ipmi_client_connection_handler, opts);
-  client.setConnection(conn);
+  free(address);
+  client->setConnection(conn);
 
-  client.chassisControl(IPMI::ChassisControlCommand::PowerUp);
+  client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
 
   for (;;) { // Start infinite event loop
+    if (client->getState() == IPMI::ClientState::NeedChassisControlResponse) {
+      break;
+    }
     mg_mgr_poll(&mgr, 1000);
   }
   mg_mgr_free(&mgr);
+  delete client;
+  return 0;
 }
 
 int posix(int argc, char **argv) {

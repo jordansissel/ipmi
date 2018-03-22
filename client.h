@@ -57,6 +57,9 @@ public:
     memcpy(this->password, password, 16);
     mbuf_init(&buffer, 30);
   }
+
+  ~Client() { mbuf_free(&buffer); }
+  ClientState getState() { return state; }
   void chassisControl(ChassisControlCommand command);
   void receivePacket(struct mbuf buf);
 

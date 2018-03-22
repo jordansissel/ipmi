@@ -4,11 +4,11 @@ LDFLAGS+=-lssl -lcrypto
 
 QUIET := @
 
-out := .build
-vendor := .vendor
+out := build
+vendor := vendor
 
-.PHONY: build
-build: $(out)/ipmi
+.PHONY: compile
+compile: $(out)/ipmi
 
 .PHONY: clean
 clean:
@@ -17,9 +17,9 @@ clean:
 $(out) $(vendor):
 	$(QUIET)mkdir -p $@
 
-
 $(out)/ipmi: $(out)/client.o $(out)/mongoose.o $(out)/ipmi.o $(out)/ipmi_mongoose.o | $(out)
-$(out)/ipmi: main.cpp
+$(out)/ipmi: CXXFLAGS+=-I.
+$(out)/ipmi: linux/main.cpp
 	@printf "%-20s %s\n" "$@" "(link) $^"
 	$(QUIET)$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 

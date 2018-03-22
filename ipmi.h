@@ -16,7 +16,7 @@
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
 #pragma once
-#include "mongoose.h"
+#include "mongoose/mongoose.h"
 #include <stdint.h>
 
 namespace IPMI {

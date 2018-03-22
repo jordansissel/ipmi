@@ -16,7 +16,7 @@
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
 #include "client.h"
-#include "mongoose.h"
+#include "mongoose/mongoose.h"
 
 extern "C" {
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
