@@ -19,9 +19,15 @@
 #include "mongoose/mongoose.h"
 
 extern "C" {
+#if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data) {
   auto client = (IPMI::Client *)nc->user_data;
+#else
+void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
+                                    void *ev_data, void *user_data) {
+  auto client = (IPMI::Client *)user_data;
+#endif
   switch (ev) {
   case MG_EV_CONNECT:
     // printf("handler CONNECT(%d)\n", ev);

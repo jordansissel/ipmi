@@ -14,7 +14,7 @@ compile: $(out)/ipmi
 clean:
 	$(QUIET)rm -rf $(out)
 
-$(out) $(vendor):
+$(out) $(vendor) $(vendor)/mongoose:
 	$(QUIET)mkdir -p $@
 
 $(out)/ipmi: $(out)/client.o $(out)/mongoose.o $(out)/ipmi.o $(out)/ipmi_mongoose.o | $(out)
@@ -32,7 +32,7 @@ $(out)/test: $(out) $(out)/mongoose.o $(out)/test.o | $(out)
 
 client.cpp: $(vendor)/mongoose.h
 
-$(out)/mongoose.o: $(vendor)/mongoose.c  | $(out)
+$(out)/mongoose.o: $(vendor)/mongoose/mongoose.c  | $(out)
 	@printf "%-20s %s\n" "$@" "(c) $<"
 	$(QUIET)$(CC) -o $@ -c $<  $(CFLAGS)
 
@@ -46,16 +46,12 @@ $(out)/%.o: %.cpp | $(out)
 
 $(out)/ipmi.o: ipmi.cpp ipmi.h
 
-ipmi.cpp: $(vendor)/mongoose.h $(vendor)/insist.h ipmi.h
+ipmi.cpp: $(vendor)/mongoose/mongoose.h ipmi.h
 
-$(vendor)/mongoose.c: $(vendor)/mongoose.h | $(vendor)
+$(vendor)/mongoose/mongoose.c: $(vendor)/mongoose/mongoose.h | $(vendor)/mongoose
 	@printf "%-20s %s\n" "$@" "Downloading"
 	$(QUIET)curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.c > $@
 
-$(vendor)/mongoose.h: | $(vendor)
+$(vendor)/mongoose/mongoose.h: | $(vendor)/mongoose
 	@printf "%-20s %s\n" "$@" "Downloading"
 	$(QUIET)curl -s https://raw.githubusercontent.com/cesanta/mongoose/master/mongoose.h > $@
-
-$(vendor)/insist.h: | $(vendor)
-	@printf "%-20s %s\n" "$@" "Downloading"
-	$(QUIET)curl -s https://raw.githubusercontent.com/jordansissel/experiments/master/c/better-assert/insist.h > $@

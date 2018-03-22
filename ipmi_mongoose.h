@@ -18,7 +18,12 @@
 #ifndef _IPMI_MONGOOSE_H_
 #define _IPMI_MONGOOSE_H_
 extern "C" {
+#if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data);
+#else
+void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
+                                    void *ev_data, void *user_data);
+#endif
 }
 #endif /* _IPMI_MONGOOSE_H_ */

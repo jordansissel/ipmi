@@ -13,9 +13,7 @@ tags:
 # List of files / directories with C sources. No slashes at the end of dir names.
 sources:
   - .
-
-includes:
-  - .vendor/
+  - mongoose
 
 cdefs:
   MGOS: 1
