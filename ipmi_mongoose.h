@@ -23,5 +23,7 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data, void *user_data);
 
+extern "C" {
 bool mgos_ipmi_init();
+}
 #endif
