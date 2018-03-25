@@ -16,10 +16,30 @@
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
 #pragma once
-#include "mongoose/mongoose.h"
+#include "mongoose/mongoose.h" // for struct mbuf
 #include <stdint.h>
 
 namespace IPMI {
+// IPMI 2.0 v2 rev 1.1 Table 5 Network Function Codes
+enum class NetworkFunction {
+  ChassisRequest = 0x0,
+  ChassisResponse = 0x1,
+  BridgeRequest = 0x2,
+  BridgeResponse = 0x3,
+  SensorRequest = 0x4,
+  SensorResponse = 0x5,
+  AppRequest = 0x6,
+  AppResponse = 0x7,
+  FirmwareRequest = 0x8,
+  FirmwareResponse = 0x9,
+  StorageRequest = 0xA,
+  StorageResponse = 0xB,
+  TransportRequest = 0xC,
+  TransportResponse = 0xD
+};
+
+constexpr uint8_t RMCP_VERSION_1_0 = 0x06;
+
 enum class AuthenticationCapability {
   Reserved = 0,
   Callback = 1,
@@ -50,13 +70,15 @@ public:
 };
 
 class RMCP : public Serializable {
-  uint8_t version;       /* Per spec: 0x06, ASF 2.0 */
+  uint8_t version;       /* Per spec: 0x06, RMCP / ASF 2.0 */
   uint8_t reserved;      /* reserved by spec */
   uint8_t sequence;      /* rmcp sequence number */
   uint8_t message_class; /* the kind of message. "normal ipmi" is 0x07 */
 
 public:
-  RMCP() : version(0x06), reserved(0x00), sequence(0xff), message_class(0x07) {}
+  RMCP()
+      : version(RMCP_VERSION_1_0), reserved(0x00), sequence(0xff),
+        message_class(0x07) {}
   void write(struct mbuf &out) const;
   void read(struct mbuf &in);
 };
@@ -91,9 +113,10 @@ class IPMB : public Serializable {
 public:
   uint8_t command;
   IPMB() {}
-  IPMB(uint8_t netFn, uint8_t sequence, uint8_t command)
-      : target(0x20), targetLun(0x0), netFn(netFn), checksum(-(0x20 + netFn)),
-        source(0x81), sourceLun(0x0), sequence(sequence), command(command) {}
+  IPMB(NetworkFunction netFn, uint8_t sequence, uint8_t command)
+      : target(0x20), targetLun(0x0), netFn((uint8_t)netFn),
+        checksum(-(0x20 + (uint8_t)netFn)), source(0x81), sourceLun(0x0),
+        sequence(sequence), command(command) {}
   void write(struct mbuf &out) const;
   void read(struct mbuf &in);
 };

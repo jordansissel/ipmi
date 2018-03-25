@@ -44,7 +44,8 @@ void Session::write(struct mbuf &out) const {
   mbuf_append(&out, &sequence, 4);
   mbuf_append(&out, &id, 4);
 
-  if (auth_type == 0x02) { /* md5 */
+  // Per spec, the authcode is only sent if auth_type != 0.
+  if (auth_type != 0x00) {
     mbuf_append(&out, auth_code, 16);
   }
 
@@ -261,7 +262,7 @@ void Response::write(struct mbuf &out) const {}
 
 void getChannelAuthenticationCapabilities(struct mbuf &buf) {
   RMCP rmcp = {};
-  IPMB ipmb = {0x06, 0x01, 0x38};
+  IPMB ipmb = {NetworkFunction::AppRequest, 0x01, 0x38};
   GetChannelAuthenticationCapabilities::Request request = {};
   Session session = {0x00, 0x00000000, 0x00000000, request.length()};
 
@@ -301,7 +302,7 @@ void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
 
 void getSessionChallenge(struct mbuf &buf) {
   RMCP rmcp = {};
-  IPMB ipmb = {0x06, 0x01, 0x39 /* SessionChallenge */};
+  IPMB ipmb = {NetworkFunction::AppRequest, 0x01, 0x39 /* SessionChallenge */};
   GetSessionChallenge::Request request = {};
   Session session = {0x00, 0x00000000, 0x00000000, request.length()};
 
@@ -341,7 +342,7 @@ void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
 void activateSession(struct mbuf &buf, uint8_t password[16], uint32_t sequence,
                      uint32_t session_id, uint8_t challenge[16]) {
   RMCP rmcp = {};
-  IPMB ipmb = {0x06, 0x01, 0x3A /* Activate Session */};
+  IPMB ipmb = {NetworkFunction::AppRequest, 0x01, 0x3A /* Activate Session */};
   const ActivateSession::Request request(sequence, challenge);
   Session session = {0x02, 0x00000000, session_id, request.length()};
 
@@ -403,7 +404,8 @@ void setSessionPrivilege(struct mbuf &buf, uint32_t session_id,
                          uint32_t sequence, uint8_t password[16],
                          IPMI::AuthenticationCapability privilege) {
   RMCP rmcp = {};
-  IPMB ipmb = {0x06, 0x01, 0x3B /* Set Session Privilege*/};
+  IPMB ipmb = {NetworkFunction::AppRequest, 0x01,
+               0x3B /* Set Session Privilege*/};
   const SetSessionPrivilege::Request request((uint8_t)privilege);
   Session session = {0x02, sequence, session_id, request.length()};
 
@@ -462,7 +464,8 @@ void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
 void chassisControl(struct mbuf &buf, uint32_t session_id, uint32_t sequence,
                     uint8_t password[16], ChassisControlCommand command) {
   RMCP rmcp = {};
-  IPMB ipmb = {0x00 /* Chassis Request */, 0x01, 0x02 /* Chassis Control */};
+  IPMB ipmb = {NetworkFunction::ChassisRequest, 0x01,
+               0x02 /* Chassis Control */};
   const ChassisControl::Request request(command);
   Session session = {0x02, sequence, session_id, request.length()};
 
