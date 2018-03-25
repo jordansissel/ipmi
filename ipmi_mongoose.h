@@ -22,4 +22,9 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
 #else
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data, void *user_data);
+
+bool mgos_ipmi_init() {
+  // nothing to do, but this is required by mongoose os
+  return true;
+}
 #endif
