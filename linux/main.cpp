@@ -54,9 +54,9 @@ int mgos(int argc, char **argv) {
   client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
 
   for (;;) { // Start infinite event loop
-    if (client->getState() == IPMI::ClientState::NeedChassisControlResponse) {
-      break;
-    }
+    // if (client->getState() == IPMI::ClientState::NeedChassisControlResponse)
+    // { break;
+    // }
     mg_mgr_poll(&mgr, 1000);
   }
   mg_mgr_free(&mgr);
