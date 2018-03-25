@@ -36,19 +36,25 @@ static void display_status(Adafruit_SSD1306 *d, const char *text) {
 //   d->display();
 // }
 
+void foo(struct mg_connection *nc, int ev, void *ev_data, void *user_data) {
+  LOG(LL_INFO, ("event %d", ev));
+  (void)nc;
+  (void)ev_data;
+  (void)user_data;
+}
 static void ipmi() {
   uint8_t password[16] = {};
   strncpy((char *)password, "fancypants", 16);
   auto client = new IPMI::Client(password);
 
 #if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
-  struct mg_connect_opts opts = {.user_data = &client};
-  auto conn = mg_connect_opt(mgos_get_mgr(), "udp://pork-ipmi:613",
+  struct mg_connect_opts opts = {.user_data = client};
+  auto conn = mg_connect_opt(mgos_get_mgr(), "udp://pork-ipmi:623",
                              ipmi_client_connection_handler, opts);
 #else
-  // Mongoose-OS has a different mg_connect and mg_connect_opt signature
-  auto conn = mg_connect(mgos_get_mgr(), "udp://pork-ipmi:613",
-                         ipmi_client_connection_handler, &client);
+  // Mongoose OS has a different mg_connect and mg_connect_opt signature
+  auto conn = mg_connect(mgos_get_mgr(), "udp://pork-ipmi:623",
+                         ipmi_client_connection_handler, client);
 #endif
   client->setConnection(conn);
   client->chassisControl(IPMI::ChassisControlCommand::PowerUp);
@@ -64,10 +70,10 @@ static void network_status_cb(int ev, void *evd, void *arg) {
     break;
   case MGOS_NET_EV_CONNECTED:
     display_status(display, "Connected");
-    LOG(LL_INFO, ("%s", "Net connected"));
     break;
   case MGOS_NET_EV_IP_ACQUIRED:
     display_status(display, "Online.");
+    LOG(LL_INFO, ("%s", "Online"));
     ipmi();
 
     break;
@@ -85,7 +91,8 @@ enum mgos_app_init_result mgos_app_init(void) {
 
   if (display != nullptr) {
     display->begin(SSD1306_SWITCHCAPVCC,
-                   0x3C /* Check the ID on the display or use i2c scanning */,
+                   0x3C /* Check the ID on the display or use i2c scanning
+                   */,
                    true /* reset */);
     display->display();
     display->fillScreen(BLACK);
