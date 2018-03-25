@@ -15,9 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
-#ifndef _IPMI_MONGOOSE_H_
-#define _IPMI_MONGOOSE_H_
-extern "C" {
+#pragma once
 #if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data);
@@ -25,5 +23,3 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data, void *user_data);
 #endif
-}
-#endif /* _IPMI_MONGOOSE_H_ */

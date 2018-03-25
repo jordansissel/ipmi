@@ -18,7 +18,6 @@
 #include "client.h"
 #include "mongoose/mongoose.h"
 
-extern "C" {
 #if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
                                     void *ev_data) {
@@ -30,7 +29,7 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
 #endif
   switch (ev) {
   case MG_EV_CONNECT:
-    // printf("handler CONNECT(%d)\n", ev);
+    printf("handler CONNECT(%d)\n", ev);
     client->setConnection(nc);
     break;
   case MG_EV_RECV:
@@ -49,7 +48,6 @@ void ipmi_client_connection_handler(struct mg_connection *nc, int ev,
     // printf("handler ??? (%d)\n", ev);
     break;
   }
-  (void)client;
+  (void)ev_data;
   (void)nc;
-}
 }
