@@ -40,6 +40,8 @@ private:
   uint32_t session_id;
   uint32_t sequence;
   uint32_t sequence_out;
+  uint8_t failures = 0;
+  uint8_t max_failures = 3;
 
   mg_connection *connection;
 

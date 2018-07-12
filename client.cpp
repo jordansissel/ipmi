@@ -81,28 +81,39 @@ void Client::receivePacket(struct mbuf payload) {
   IPMI::Session session;
   printf("receivePacket() state = %s\n", stateToString(state));
 
+  Status status;
   switch (state) {
   case ClientState::Initial:
     printf("Invalid state? Received a packet when state=Initial?");
     break;
   case ClientState::NeedChannelAuthenticationCapabilities:
-    receiveChannelAuthenticationCapabilities(payload);
+    status = receiveChannelAuthenticationCapabilities(payload);
     break;
   case ClientState::NeedSessionChallenge:
-    receiveSessionChallenge(payload);
+    status = receiveSessionChallenge(payload);
     break;
   case ClientState::NeedActivateSession:
-    receiveActivateSession(payload);
+    status = receiveActivateSession(payload);
     break;
   case ClientState::NeedSetSessionPrivilegeLevel:
-    receiveSetSessionPrivilegeLevel(payload);
+    status = receiveSetSessionPrivilegeLevel(payload);
     break;
   case ClientState::SessionReady:
     // what now?
     // After: Pop any command waiting in the queue and send it.
     break;
   case ClientState::NeedChassisControlResponse:
-    receiveChassisControl(payload);
+    status = receiveChassisControl(payload);
+  }
+
+  if (status == Status::Failure) {
+    if (failures < max_failures) {
+      printf("IPMI request failed. Will retry.\n");
+      failures++;
+    } else {
+      printf("IPMI failed to many times. Giving up. (Failures: %d)\n",
+             failures);
+    }
   }
 }
 
