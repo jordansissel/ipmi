@@ -44,11 +44,11 @@ private:
   mg_connection *connection;
 
   void send(ChassisControlCommand);
-  void receiveChannelAuthenticationCapabilities(struct mbuf payload);
-  void receiveSessionChallenge(struct mbuf payload);
-  void receiveActivateSession(struct mbuf payload);
-  void receiveSetSessionPrivilegeLevel(struct mbuf payload);
-  void receiveChassisControl(struct mbuf payload);
+  Status receiveChannelAuthenticationCapabilities(struct mbuf payload);
+  Status receiveSessionChallenge(struct mbuf payload);
+  Status receiveActivateSession(struct mbuf payload);
+  Status receiveSetSessionPrivilegeLevel(struct mbuf payload);
+  Status receiveChassisControl(struct mbuf payload);
   void begin();
 
 public:

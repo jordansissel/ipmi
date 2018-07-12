@@ -106,25 +106,28 @@ void Client::receivePacket(struct mbuf payload) {
   }
 }
 
-void Client::receiveChannelAuthenticationCapabilities(struct mbuf payload) {
+Status Client::receiveChannelAuthenticationCapabilities(struct mbuf payload) {
   IPMI::RMCP rmcp;
   IPMI::IPMB ipmb;
   IPMI::Session session;
   IPMI::GetChannelAuthenticationCapabilities::Response response;
 
-  IPMI::decode(payload, rmcp, ipmb, session, response);
+  auto status = IPMI::decode(payload, rmcp, ipmb, session, response);
+  if (status == Status::Failure) {
+    return status;
+  }
 
   // If all is good, set state NeedSessionChallenge and send a
   // GetSessionChallenge request
   if (response.completion_code != 0) {
     printf("IPMI abort: ChannelAuthenticationCapabilities request failed.\n");
-    return;
+    return Status::Failure;
   }
 
   if (!response.hasMD5()) {
     printf("IPMI abort: Remote claims no support for MD5 authcode. Cannot "
            "continue.\n");
-    return;
+    return Status::Failure;
   }
 
   state = ClientState::NeedSessionChallenge;
@@ -132,15 +135,19 @@ void Client::receiveChannelAuthenticationCapabilities(struct mbuf payload) {
   IPMI::getSessionChallenge(buffer);
   mg_send(connection, buffer.buf, buffer.len);
   mbuf_remove(&buffer, buffer.len);
+  return Status::Success;
 }
 
-void Client::receiveSessionChallenge(struct mbuf payload) {
+Status Client::receiveSessionChallenge(struct mbuf payload) {
   IPMI::RMCP rmcp;
   IPMI::IPMB ipmb;
   IPMI::Session session;
   IPMI::GetSessionChallenge::Response response;
 
-  IPMI::decode(payload, rmcp, ipmb, session, response);
+  auto status = IPMI::decode(payload, rmcp, ipmb, session, response);
+  if (status == Status::Failure) {
+    return status;
+  }
 
   session_id = response.session_id;
 
@@ -152,15 +159,19 @@ void Client::receiveSessionChallenge(struct mbuf payload) {
                         response.challenge);
   mg_send(connection, buffer.buf, buffer.len);
   mbuf_remove(&buffer, buffer.len);
+  return Status::Success;
 }
 
-void Client::receiveActivateSession(struct mbuf payload) {
+Status Client::receiveActivateSession(struct mbuf payload) {
   IPMI::RMCP rmcp;
   IPMI::IPMB ipmb;
   IPMI::Session session;
   IPMI::ActivateSession::Response response;
 
-  IPMI::decode(payload, password, rmcp, ipmb, session, response);
+  auto status = IPMI::decode(payload, password, rmcp, ipmb, session, response);
+  if (status == Status::Failure) {
+    return status;
+  }
 
   session_id = response.session;
 
@@ -175,15 +186,19 @@ void Client::receiveActivateSession(struct mbuf payload) {
   mbuf_remove(&buffer, buffer.len);
 
   sequence_out++;
+  return Status::Success;
 }
 
-void Client::receiveSetSessionPrivilegeLevel(struct mbuf payload) {
+Status Client::receiveSetSessionPrivilegeLevel(struct mbuf payload) {
   IPMI::RMCP rmcp;
   IPMI::IPMB ipmb;
   IPMI::Session session;
   IPMI::SetSessionPrivilege::Response response;
 
-  IPMI::decode(payload, password, rmcp, ipmb, session, response);
+  auto status = IPMI::decode(payload, password, rmcp, ipmb, session, response);
+  if (status == Status::Failure) {
+    return status;
+  }
 
   // XXX: Verify the response has the requested privilege level
 
@@ -198,11 +213,13 @@ void Client::receiveSetSessionPrivilegeLevel(struct mbuf payload) {
   mbuf_remove(&buffer, buffer.len);
 
   state = ClientState::NeedChassisControlResponse;
+  return Status::Success;
 }
 
-void Client::receiveChassisControl(struct mbuf payload) {
+Status Client::receiveChassisControl(struct mbuf payload) {
   printf("Received ChassisControl response\n");
   mg_hexdumpf(stdout, payload.buf, payload.len);
+  return Status::Success;
 }
 
 void Client::setConnection(mg_connection *c) {
