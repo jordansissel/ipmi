@@ -38,6 +38,8 @@ enum class NetworkFunction {
   TransportResponse = 0xD
 };
 
+enum class Status { Success, Failure };
+
 constexpr uint8_t RMCP_VERSION_1_0 = 0x06;
 
 enum class AuthenticationCapability {
@@ -61,7 +63,7 @@ enum class ChassisControlCommand {
 class Serializable {
 public:
   virtual void write(struct mbuf &out) const = 0;
-  virtual void read(struct mbuf &out) = 0;
+  virtual Status read(struct mbuf &out) = 0;
 };
 
 class Command : public Serializable {
@@ -80,7 +82,7 @@ public:
       : version(RMCP_VERSION_1_0), reserved(0x00), sequence(0xff),
         message_class(0x07) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
 };
 
 class Session : public Serializable {
@@ -95,7 +97,7 @@ public:
   Session(uint8_t auth_type, uint32_t sequence, uint32_t id, uint8_t length)
       : auth_type(auth_type), sequence(sequence), id(id), length(length) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
 };
 
 const uint8_t IPMB_SIZE = 6;
@@ -118,7 +120,7 @@ public:
         checksum(-(0x20 + (uint8_t)netFn)), source(0x81), sourceLun(0x0),
         sequence(sequence), command(command) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
 };
 
 namespace GetChannelAuthenticationCapabilities {
@@ -131,7 +133,7 @@ public:
       : channel(0x0e),
         privileges((uint8_t)AuthenticationCapability::Administrator) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return IPMB_SIZE + 2 + CHECKSUM_SIZE; }
 };
 
@@ -152,7 +154,7 @@ public:
   bool hasMD5() { return auth_type1 & (1 << 2); }
 
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 9; };
 };
 } // namespace GetChannelAuthenticationCapabilities
@@ -166,7 +168,7 @@ public:
   Request() : auth_type(0x02 /* MD5 */), user("root\0\0\0\0\0\0\0\0\0\0\0") {}
 
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const {
     return 24 /* 6 (ipmb) + 17 (payload) + 1 (checksum) */;
   }
@@ -179,7 +181,7 @@ public:
   Response() {}
 
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 20; }
 };
 } // namespace GetSessionChallenge
@@ -200,7 +202,7 @@ public:
   }
 
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 29; }
 };
 class Response : public Command {
@@ -211,7 +213,7 @@ public:
   uint32_t session;
   uint32_t sequence;
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 10; }
 };
 
@@ -226,7 +228,7 @@ public:
   Request(uint8_t privilege) : privilege(privilege) {}
 
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 8; }
 };
 class Response : public Command {
@@ -236,7 +238,7 @@ public:
   Response(){};
   Response(uint8_t privilege) : privilege(privilege) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 8; }
 };
 } // namespace SetSessionPrivilege
@@ -249,36 +251,37 @@ public:
   Request() {}
   Request(ChassisControlCommand command) : command((uint8_t)command) {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 8; }
 };
 class Response : Command {
 public:
   Response() {}
   void write(struct mbuf &out) const;
-  void read(struct mbuf &in);
+  Status read(struct mbuf &in);
   uint8_t length() const { return 7; }
 };
 } // namespace ChassisControl
 
 void getChannelAuthenticationCapabilities(struct mbuf &buf);
-void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
-            GetChannelAuthenticationCapabilities::Response &response);
+Status decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+              GetChannelAuthenticationCapabilities::Response &response);
 void getSessionChallenge(struct mbuf &buf);
-void decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
-            GetSessionChallenge::Response &response);
+Status decode(struct mbuf &buf, RMCP &rmcp, IPMB &ipmb, Session &session,
+              GetSessionChallenge::Response &response);
 
 void activateSession(struct mbuf &buf, uint8_t password[16], uint32_t sequence,
                      uint32_t session_id, uint8_t challenge[16]);
-void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
-            IPMB &ipmb, Session &session, ActivateSession::Response &response);
+Status decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
+              IPMB &ipmb, Session &session,
+              ActivateSession::Response &response);
 
 void setSessionPrivilege(struct mbuf &buf, uint32_t session, uint32_t sequence,
                          uint8_t password[16],
                          IPMI::AuthenticationCapability privilege);
-void decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
-            IPMB &ipmb, Session &session,
-            SetSessionPrivilege::Response &response);
+Status decode(struct mbuf &buf, const uint8_t password[16], RMCP &rmcp,
+              IPMB &ipmb, Session &session,
+              SetSessionPrivilege::Response &response);
 
 void chassisControl(struct mbuf &buf, uint32_t session, uint32_t sequence,
                     uint8_t password[16], ChassisControlCommand command);
