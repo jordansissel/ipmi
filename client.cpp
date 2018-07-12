@@ -81,7 +81,7 @@ void Client::receivePacket(struct mbuf payload) {
   IPMI::Session session;
   printf("receivePacket() state = %s\n", stateToString(state));
 
-  Status status;
+  Status status = Status::Success;
   switch (state) {
   case ClientState::Initial:
     printf("Invalid state? Received a packet when state=Initial?");

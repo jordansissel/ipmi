@@ -16,7 +16,7 @@
     along with jordansissel/ipmi.  If not, see <http://www.gnu.org/licenses/>.
   */
 #include "client.h"
-#include "mongoose/mongoose.h"
+#include "mongoose.h"
 
 #if CS_PLATFORM == CS_P_UNIX || CS_PLATFORM == CS_P_WINDOWS
 void ipmi_client_connection_handler(struct mg_connection *nc, int ev,

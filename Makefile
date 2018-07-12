@@ -1,5 +1,5 @@
 CFLAGS=-Wall -g -I $(vendor)
-CXXFLAGS=-Wall -std=c++11 -g -I $(vendor)
+CXXFLAGS=-Wall -std=c++11 -g -I $(vendor) -Werror=maybe-uninitialized
 LDFLAGS+=-lssl -lcrypto
 
 QUIET := @

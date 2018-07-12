@@ -17,7 +17,7 @@
   */
 #include "ipmi.h"
 #include "insist.h"
-#include "mongoose/mongoose.h"
+#include "mongoose.h"
 #include <stdint.h>
 
 namespace IPMI {
